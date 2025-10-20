@@ -1,0 +1,36 @@
+{
+  "name": "SensorySearch - Find Sensory-Friendly Outings",
+  "short_name": "SensorySearch",
+  "description": "Discover calm, accessible venues and events with detailed sensory information",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF9F0",
+  "theme_color": "#0FA3B1",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192.jpg",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.jpg",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.jpg",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512.jpg",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
