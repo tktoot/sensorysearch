@@ -21,7 +21,7 @@ export const BETA_NOTIFY_EMAIL = process.env.BETA_NOTIFY_EMAIL || "tktoot1@yahoo
 export const UPLOAD_MAX_MB = Number.parseInt(process.env.UPLOAD_MAX_MB || "5", 10)
 export const UPLOAD_MAX_IMAGES = Number.parseInt(process.env.UPLOAD_MAX_IMAGES || "5", 10)
 
-export const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "tktoot1@yahoo.com,tktut1@yahoo.com")
+export const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "tktoot1@yahoo.com")
   .split(",")
   .map((email) => email.trim().toLowerCase())
 
