@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "tktoot1@yahoo.com,tktut1@yahoo.com")
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "tktoot1@yahoo.com")
   .split(",")
   .map((email) => email.trim().toLowerCase())
 

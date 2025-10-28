@@ -1,0 +1,8 @@
+/node_modules
+/Supabase URL.rtf
+/.env.local
+/package.json
+/package-lock.json
+/next-env.d.ts
+/tsconfig.json
+/.next
