@@ -31,6 +31,7 @@ export default function SubmitCommunityVenuePage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
 
+  const [images, setImages] = useState<string[]>([])
   const [formData, setFormData] = useState({
     email: "",
     venueName: "",
@@ -91,7 +92,7 @@ export default function SubmitCommunityVenuePage() {
       features: formData.features,
       website: formData.website || undefined,
       contactEmail: formData.email,
-      imageUrl: "/park-playground.jpg",
+      imageUrl: images[0] || "/park-playground.jpg",
       rating: 0,
       reviewCount: 0,
       ageRange: ["all"],
@@ -391,17 +392,8 @@ export default function SubmitCommunityVenuePage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Photos (Coming Soon)</Label>
-                <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 p-8 text-center">
-                  <div className="space-y-2">
-                    <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Photo upload will be available soon</p>
-                  </div>
-                </div>
-              </div>
+              <ImageUpload images={images} onChange={setImages} maxImages={1} />
             </CardContent>
-          </Card>
 
           {/* Submit */}
           <Card className="border-muted">
