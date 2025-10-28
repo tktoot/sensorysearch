@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { ImageUpload } from "@/components/image-upload"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
@@ -318,7 +319,7 @@ export default function SubmitVenuePage() {
               </div>
             </div>
 
-            <ImageUpload images={images} onChange={setImages} maxImages={1} />
+            <ImageUpload images={images} onChange={setImages} />
 
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? (

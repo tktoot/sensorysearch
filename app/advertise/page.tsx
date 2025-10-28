@@ -1878,6 +1878,34 @@ export default function AdvertisePage() {
 
   return (
     <>
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="max-w-md">
+            <CardHeader>
+              <CardTitle>Payments Coming Soon</CardTitle>
+              <CardDescription>Your submission will be saved as pending</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  Billing is currently disabled during beta testing. Your {submissionType} submission will be saved and
+                  reviewed by our team. We'll notify you when it's approved!
+                </AlertDescription>
+              </Alert>
+
+              <div className="flex gap-3">
+                <Button onClick={handlePaymentModalConfirm} className="flex-1">
+                  Continue
+                </Button>
+                <Button variant="outline" onClick={() => setShowPaymentModal(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </>
   )
 }
