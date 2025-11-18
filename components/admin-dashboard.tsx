@@ -15,18 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  MapPin,
-  Calendar,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-  Loader2,
-  ExternalLink,
-  Mail,
-  PhoneIcon,
-  Clock,
-} from "lucide-react"
+import { MapPin, Calendar, AlertCircle, CheckCircle, XCircle, Loader2, ExternalLink, Mail, PhoneIcon, Clock, RefreshCw } from 'lucide-react'
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 
@@ -67,17 +56,36 @@ export function AdminDashboard() {
 
   const fetchListings = async () => {
     try {
+      console.log("[v0] ADMIN_FETCH: Starting to fetch listings...")
       const supabase = createClient()
+      
       const { data, error } = await supabase.from("listings").select("*").order("submitted_at", { ascending: false })
 
-      if (error) throw error
+      console.log("[v0] ADMIN_FETCH: Supabase response", {
+        success: !error,
+        count: data?.length || 0,
+        error: error?.message,
+        data: data?.map(d => ({ id: d.id, title: d.title, status: d.status }))
+      })
+
+      if (error) {
+        console.error("[v0] ADMIN_FETCH_ERROR:", error)
+        throw error
+      }
+
+      console.log("[v0] ADMIN_FETCH_SUCCESS:", {
+        total: data?.length || 0,
+        pending: data?.filter(d => d.status === 'pending').length || 0,
+        approved: data?.filter(d => d.status === 'approved').length || 0,
+        rejected: data?.filter(d => d.status === 'rejected').length || 0,
+      })
 
       setListings(data || [])
     } catch (error) {
-      console.error("[v0] Failed to fetch listings:", error)
+      console.error("[v0] ADMIN_FETCH_FAILED:", error)
       toast({
         title: "Error",
-        description: "Failed to load listings",
+        description: "Failed to load listings. Check console for details.",
         variant: "destructive",
       })
     } finally {
@@ -186,8 +194,26 @@ export function AdminDashboard() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="mb-2 text-4xl font-bold tracking-tight text-foreground">Admin Dashboard</h1>
-        <p className="text-lg text-muted-foreground">Manage and moderate submissions</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="mb-2 text-4xl font-bold tracking-tight text-foreground">Admin Dashboard</h1>
+            <p className="text-lg text-muted-foreground">Manage and moderate submissions</p>
+          </div>
+          <Button
+            onClick={fetchListings}
+            disabled={loading}
+            variant="outline"
+            size="lg"
+            className="gap-2"
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Stats Overview */}

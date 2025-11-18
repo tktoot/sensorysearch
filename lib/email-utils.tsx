@@ -2,240 +2,312 @@ import { Resend } from "resend"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-export async function sendSubmissionNotification(submission: {
-  type: "venue" | "event" | "park"
-  businessName: string
-  contactName: string
-  contactEmail: string
-  contactPhone: string
+export async function sendSubmissionNotification({
+  type,
+  title,
+  description,
+  submitterEmail,
+  submissionId,
+  images,
+}: {
+  type: string
+  title: string
   description: string
-  address?: string
-  city?: string
-  category: string
-  sensoryFeatures: string[]
-  photoCount?: number
+  submitterEmail: string
+  submissionId: string
+  images: string[]
 }) {
   if (!process.env.RESEND_API_KEY) {
-    console.log("[v0] EMAIL_SKIP - RESEND_API_KEY not configured")
-    return { success: false, error: "Email service not configured" }
+    console.log("[v0] EMAIL_SKIP: RESEND_API_KEY not configured")
+    return
   }
 
-  const adminEmail = process.env.BETA_NOTIFY_EMAIL || "tktoot1@yahoo.com"
-
-  console.log("[v0] EMAIL_SENDING - New submission notification", {
-    to: adminEmail,
-    type: submission.type,
-    businessName: submission.businessName,
-  })
-
   try {
+    console.log("[v0] EMAIL_SENDING: Submission notification", {
+      to: "tktoot1@yahoo.com",
+      type,
+      title,
+      submitterEmail,
+      submissionId,
+      imageCount: images.length,
+    })
+
     const { data, error } = await resend.emails.send({
       from: "SensorySearch <onboarding@resend.dev>",
-      to: [adminEmail],
-      subject: `New ${submission.type} submission: ${submission.businessName}`,
+      to: ["tktoot1@yahoo.com"],
+      subject: `New ${type} Submission: ${title}`,
       html: `
-        <h2>New ${submission.type.toUpperCase()} Submission</h2>
-        <h3>${submission.businessName}</h3>
-        
-        <p><strong>Contact:</strong> ${submission.contactName}</p>
-        <p><strong>Email:</strong> ${submission.contactEmail}</p>
-        <p><strong>Phone:</strong> ${submission.contactPhone}</p>
-        
-        ${submission.address ? `<p><strong>Address:</strong> ${submission.address}</p>` : ""}
-        ${submission.city ? `<p><strong>City:</strong> ${submission.city}</p>` : ""}
-        
-        <p><strong>Category:</strong> ${submission.category}</p>
-        
-        <p><strong>Description:</strong></p>
-        <p>${submission.description}</p>
-        
-        <p><strong>Sensory Features:</strong></p>
-        <ul>
-          ${submission.sensoryFeatures.map((feature) => `<li>${feature}</li>`).join("")}
-        </ul>
-        
-        ${submission.photoCount ? `<p><strong>Photos:</strong> ${submission.photoCount} uploaded</p>` : ""}
-        
-        <p>Please review and approve/reject this submission from the admin dashboard.</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">New Submission Received</h2>
+          
+          <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Type:</strong> ${type}</p>
+            <p><strong>Title:</strong> ${title}</p>
+            <p><strong>Submitted by:</strong> ${submitterEmail}</p>
+            <p><strong>Submission ID:</strong> ${submissionId}</p>
+            <p><strong>Photos:</strong> ${images.length} image(s)</p>
+          </div>
+
+          <div style="margin: 20px 0;">
+            <h3 style="color: #333;">Description:</h3>
+            <p style="color: #666;">${description}</p>
+          </div>
+
+          ${images.length > 0 ? `
+            <div style="margin: 20px 0;">
+              <h3 style="color: #333;">Photos:</h3>
+              <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                ${images.map(img => `<img src="${img}" style="width: 150px; height: 150px; object-fit: cover; border-radius: 4px;" />`).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <div style="margin: 30px 0; padding: 20px; background: #e3f2fd; border-radius: 8px;">
+            <p style="margin: 0;"><strong>Action Required:</strong> Review and approve/reject this submission in your admin dashboard.</p>
+          </div>
+        </div>
       `,
     })
 
     if (error) {
-      console.error("[v0] EMAIL_ERROR - Failed to send submission notification", error)
-      return { success: false, error: error.message }
+      console.error("[v0] EMAIL_ERROR:", error)
+      throw error
     }
 
-    console.log("[v0] EMAIL_SUCCESS - Submission notification sent", { messageId: data?.id })
-    return { success: true, messageId: data?.id }
+    console.log("[v0] EMAIL_SUCCESS:", { messageId: data?.id })
+    return data
   } catch (error) {
-    console.error("[v0] EMAIL_ERROR - Exception sending submission notification", error)
-    return { success: false, error: String(error) }
+    console.error("[v0] EMAIL_ERROR: Failed to send submission notification:", error)
+    throw error
   }
 }
 
-export async function sendAdvertiseFormNotification(formData: {
-  businessName: string
+export async function sendApprovalNotification({
+  email,
+  title,
+  type,
+}: {
+  email: string
+  title: string
+  type: string
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log("[v0] EMAIL_SKIP: RESEND_API_KEY not configured")
+    return
+  }
+
+  try {
+    console.log("[v0] EMAIL_SENDING: Approval notification", { to: email, title, type })
+
+    const { data, error } = await resend.emails.send({
+      from: "SensorySearch <onboarding@resend.dev>",
+      to: [email],
+      subject: `Your ${type} listing has been approved!`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #4CAF50;">Congratulations! Your Listing is Live</h2>
+          
+          <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Title:</strong> ${title}</p>
+            <p><strong>Type:</strong> ${type}</p>
+          </div>
+
+          <p style="color: #666;">Your submission has been reviewed and approved! It's now live on SensorySearch and visible to all users.</p>
+
+          <p style="color: #666; margin-top: 20px;">Thank you for contributing to our sensory-friendly community!</p>
+        </div>
+      `,
+    })
+
+    if (error) {
+      console.error("[v0] EMAIL_ERROR:", error)
+      throw error
+    }
+
+    console.log("[v0] EMAIL_SUCCESS:", { messageId: data?.id })
+    return data
+  } catch (error) {
+    console.error("[v0] EMAIL_ERROR: Failed to send approval notification:", error)
+    throw error
+  }
+}
+
+export async function sendRejectionNotification({
+  email,
+  title,
+  type,
+  reason,
+}: {
+  email: string
+  title: string
+  type: string
+  reason?: string
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log("[v0] EMAIL_SKIP: RESEND_API_KEY not configured")
+    return
+  }
+
+  try {
+    console.log("[v0] EMAIL_SENDING: Rejection notification", { to: email, title, type, hasReason: !!reason })
+
+    const { data, error } = await resend.emails.send({
+      from: "SensorySearch <onboarding@resend.dev>",
+      to: [email],
+      subject: `Update on your ${type} submission`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #f44336;">Submission Update</h2>
+          
+          <div style="background: #ffebee; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Title:</strong> ${title}</p>
+            <p><strong>Type:</strong> ${type}</p>
+          </div>
+
+          <p style="color: #666;">Unfortunately, your submission did not meet our current listing criteria.</p>
+
+          ${reason ? `
+            <div style="background: #f5f5f5; padding: 15px; border-left: 4px solid #f44336; margin: 20px 0;">
+              <p style="margin: 0; color: #333;"><strong>Reason:</strong></p>
+              <p style="margin: 10px 0 0 0; color: #666;">${reason}</p>
+            </div>
+          ` : ''}
+
+          <p style="color: #666; margin-top: 20px;">You're welcome to submit again with updated information. If you have questions, please contact us.</p>
+        </div>
+      `,
+    })
+
+    if (error) {
+      console.error("[v0] EMAIL_ERROR:", error)
+      throw error
+    }
+
+    console.log("[v0] EMAIL_SUCCESS:", { messageId: data?.id })
+    return data
+  } catch (error) {
+    console.error("[v0] EMAIL_ERROR: Failed to send rejection notification:", error)
+    throw error
+  }
+}
+
+export async function sendAdvertiseFormNotification({
+  businessName,
+  contactName,
+  contactEmail,
+  contactPhone,
+  contactWebsite,
+  eventTitle,
+  description,
+  address,
+  city,
+  category,
+  sensoryFeatures,
+  isVenue,
+  isEvent,
+  isFeatured,
+}: {
+  businessName?: string
   contactName: string
   contactEmail: string
-  contactPhone: string
+  contactPhone?: string
   contactWebsite?: string
   eventTitle?: string
   description: string
   address?: string
   city?: string
-  category: string
+  category?: string
   sensoryFeatures: string[]
   isVenue?: boolean
   isEvent?: boolean
   isFeatured?: boolean
 }) {
   if (!process.env.RESEND_API_KEY) {
-    console.log("[v0] EMAIL_SKIP - RESEND_API_KEY not configured")
-    return { success: false, error: "Email service not configured" }
+    console.log("[v0] EMAIL_SKIP: RESEND_API_KEY not configured")
+    return { success: false, error: "RESEND_API_KEY not configured" }
   }
 
-  const adminEmail = process.env.BETA_NOTIFY_EMAIL || "tktoot1@yahoo.com"
-
-  const submissionType = formData.isEvent ? "Event" : "Venue"
-
-  console.log("[v0] EMAIL_SENDING - Advertise form submission", {
-    to: adminEmail,
-    type: submissionType,
-    businessName: formData.businessName || formData.eventTitle,
-  })
-
   try {
-    const { data, error } = await resend.emails.send({
-      from: "SensorySearch Advertise <onboarding@resend.dev>",
-      to: [adminEmail],
-      subject: `New Advertise Form: ${formData.businessName || formData.eventTitle}`,
-      html: `
-        <h2>New Advertise Form Submission</h2>
-        <p><strong>Type:</strong> ${submissionType}${formData.isFeatured ? " (Featured)" : ""}</p>
-        
-        <h3>${formData.businessName || formData.eventTitle}</h3>
-        
-        <h4>Contact Information</h4>
-        <p><strong>Name:</strong> ${formData.contactName}</p>
-        <p><strong>Email:</strong> ${formData.contactEmail}</p>
-        <p><strong>Phone:</strong> ${formData.contactPhone}</p>
-        ${formData.contactWebsite ? `<p><strong>Website:</strong> ${formData.contactWebsite}</p>` : ""}
-        
-        ${formData.address ? `<p><strong>Address:</strong> ${formData.address}</p>` : ""}
-        ${formData.city ? `<p><strong>City:</strong> ${formData.city}</p>` : ""}
-        
-        <p><strong>Category:</strong> ${formData.category}</p>
-        
-        <h4>Description</h4>
-        <p>${formData.description}</p>
-        
-        <h4>Sensory Features</h4>
-        <ul>
-          ${formData.sensoryFeatures.map((feature) => `<li>${feature}</li>`).join("")}
-        </ul>
-        
-        <p><em>This submission is pending review and payment processing.</em></p>
-      `,
+    console.log("[v0] EMAIL_SENDING: Advertise form notification", {
+      to: "tktoot1@yahoo.com",
+      contactEmail,
+      businessName,
+      isVenue,
+      isEvent,
+      isFeatured,
     })
 
-    if (error) {
-      console.error("[v0] EMAIL_ERROR - Failed to send advertise form notification", error)
-      return { success: false, error: error.message }
-    }
+    const listingType = isEvent ? "Event" : isVenue ? "Business Venue" : "Listing"
+    const subject = isFeatured 
+      ? `🌟 Featured ${listingType} Inquiry from ${contactName}`
+      : `New ${listingType} Inquiry from ${contactName}`
 
-    console.log("[v0] EMAIL_SUCCESS - Advertise form notification sent", { messageId: data?.id })
-    return { success: true, messageId: data?.id }
-  } catch (error) {
-    console.error("[v0] EMAIL_ERROR - Exception sending advertise form notification", error)
-    return { success: false, error: String(error) }
-  }
-}
-
-export async function sendApprovalNotification(
-  submissionId: string,
-  email: string,
-  businessName: string,
-  type: string,
-) {
-  if (!process.env.RESEND_API_KEY) {
-    console.log("[v0] EMAIL_SKIP - RESEND_API_KEY not configured")
-    return { success: false, error: "Email service not configured" }
-  }
-
-  console.log("[v0] EMAIL_SENDING - Approval notification", { to: email, businessName, type })
-
-  try {
     const { data, error } = await resend.emails.send({
       from: "SensorySearch <onboarding@resend.dev>",
-      to: [email],
-      subject: `Your ${type} "${businessName}" has been approved!`,
+      to: ["tktoot1@yahoo.com"],
+      subject,
       html: `
-        <h2>Congratulations!</h2>
-        <p>Your ${type} submission "${businessName}" has been approved and is now live on SensorySearch.</p>
-        
-        <p>Families in your area can now discover your ${type} when searching for sensory-friendly spaces.</p>
-        
-        <p>Thank you for making your space more accessible!</p>
-        
-        <p>Best regards,<br>The SensorySearch Team</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">${isFeatured ? '🌟 ' : ''}New Advertise Form Submission</h2>
+          
+          <div style="background: ${isFeatured ? '#fff3cd' : '#f5f5f5'}; padding: 20px; border-radius: 8px; margin: 20px 0; ${isFeatured ? 'border: 2px solid #ffc107;' : ''}">
+            <h3 style="margin-top: 0; color: #333;">Contact Information</h3>
+            <p><strong>Name:</strong> ${contactName}</p>
+            <p><strong>Email:</strong> ${contactEmail}</p>
+            ${contactPhone ? `<p><strong>Phone:</strong> ${contactPhone}</p>` : ''}
+            ${contactWebsite ? `<p><strong>Website:</strong> <a href="${contactWebsite}">${contactWebsite}</a></p>` : ''}
+          </div>
+
+          ${businessName ? `
+            <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #333;">Business Information</h3>
+              <p><strong>Business Name:</strong> ${businessName}</p>
+              ${eventTitle ? `<p><strong>Event Title:</strong> ${eventTitle}</p>` : ''}
+            </div>
+          ` : ''}
+
+          <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #333;">Listing Details</h3>
+            <p><strong>Type:</strong> ${listingType}</p>
+            ${category ? `<p><strong>Category:</strong> ${category}</p>` : ''}
+            ${address ? `<p><strong>Address:</strong> ${address}</p>` : ''}
+            ${city ? `<p><strong>City:</strong> ${city}</p>` : ''}
+            ${isFeatured ? '<p><strong>Featured:</strong> ✅ Yes</p>' : ''}
+          </div>
+
+          <div style="margin: 20px 0;">
+            <h3 style="color: #333;">Description:</h3>
+            <p style="color: #666; white-space: pre-wrap;">${description}</p>
+          </div>
+
+          ${sensoryFeatures && sensoryFeatures.length > 0 ? `
+            <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #333;">Sensory Features:</h3>
+              <ul style="margin: 10px 0; padding-left: 20px;">
+                ${sensoryFeatures.map(feature => `<li style="color: #666; margin: 5px 0;">${feature}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+
+          <div style="margin: 30px 0; padding: 20px; background: #e8f5e9; border-radius: 8px;">
+            <p style="margin: 0;"><strong>Action Required:</strong> Follow up with this advertiser via email at ${contactEmail}</p>
+          </div>
+        </div>
       `,
     })
 
     if (error) {
-      console.error("[v0] EMAIL_ERROR - Failed to send approval notification", error)
+      console.error("[v0] EMAIL_ERROR:", error)
       return { success: false, error: error.message }
     }
 
-    console.log("[v0] EMAIL_SUCCESS - Approval notification sent", { messageId: data?.id })
+    console.log("[v0] EMAIL_SUCCESS:", { messageId: data?.id })
     return { success: true, messageId: data?.id }
   } catch (error) {
-    console.error("[v0] EMAIL_ERROR - Exception sending approval notification", error)
-    return { success: false, error: String(error) }
-  }
-}
-
-export async function sendRejectionNotification(
-  submissionId: string,
-  email: string,
-  businessName: string,
-  type: string,
-  reason?: string,
-) {
-  if (!process.env.RESEND_API_KEY) {
-    console.log("[v0] EMAIL_SKIP - RESEND_API_KEY not configured")
-    return { success: false, error: "Email service not configured" }
-  }
-
-  console.log("[v0] EMAIL_SENDING - Rejection notification", { to: email, businessName, type })
-
-  try {
-    const { data, error } = await resend.emails.send({
-      from: "SensorySearch <onboarding@resend.dev>",
-      to: [email],
-      subject: `Update on your ${type} submission "${businessName}"`,
-      html: `
-        <h2>Submission Update</h2>
-        <p>Thank you for submitting "${businessName}" to SensorySearch.</p>
-        
-        <p>Unfortunately, we're unable to approve your ${type} at this time.</p>
-        
-        ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ""}
-        
-        <p>If you have any questions or would like to resubmit, please contact us.</p>
-        
-        <p>Best regards,<br>The SensorySearch Team</p>
-      `,
-    })
-
-    if (error) {
-      console.error("[v0] EMAIL_ERROR - Failed to send rejection notification", error)
-      return { success: false, error: error.message }
+    console.error("[v0] EMAIL_ERROR: Failed to send advertise form notification:", error)
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Unknown error" 
     }
-
-    console.log("[v0] EMAIL_SUCCESS - Rejection notification sent", { messageId: data?.id })
-    return { success: true, messageId: data?.id }
-  } catch (error) {
-    console.error("[v0] EMAIL_ERROR - Exception sending rejection notification", error)
-    return { success: false, error: String(error) }
   }
 }
