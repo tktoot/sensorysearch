@@ -5,8 +5,9 @@ import { createClient } from "@/lib/supabase/client"
 import { DEBUG_ADMIN_EMAILS } from "@/lib/config"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
-import { X, ChevronDown, ChevronUp } from "lucide-react"
+import { X, ChevronDown, ChevronUp, Shield } from 'lucide-react'
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 interface DebugInfo {
   authState: "authenticated" | "anonymous" | "loading"
@@ -67,9 +68,12 @@ export function AdminDebugBanner() {
       <div className="p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="bg-purple-600 text-white">
-              DEBUG MODE
-            </Badge>
+            <Link href="/admin" className="hover:opacity-80 transition-opacity">
+              <Badge variant="secondary" className="bg-purple-600 text-white flex items-center gap-1 cursor-pointer">
+                <Shield className="h-3 w-3" />
+                ADMIN MODE
+              </Badge>
+            </Link>
             <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsExpanded(!isExpanded)}>
               {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
             </Button>

@@ -1,13 +1,14 @@
 "use client"
 
-import { usePathname } from "next/navigation"
+import { usePathname } from 'next/navigation'
 import Link from "next/link"
-import { Home, Heart, User, Megaphone, BookOpen, Shield } from "lucide-react"
+import { Home, Heart, User, Megaphone, BookOpen, Shield } from 'lucide-react'
 import { useState, useEffect } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { getGuestFavorites } from "@/lib/guest-store"
 import { Badge } from "@/components/ui/badge"
 import { createClient } from "@/lib/supabase/client"
+import { DEBUG_ADMIN_EMAILS } from "@/lib/config"
 
 export function BottomTabBar() {
   const pathname = usePathname()
@@ -16,7 +17,7 @@ export function BottomTabBar() {
   const [isVisible, setIsVisible] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
-  const [userRole, setUserRole] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     const checkUserRole = async () => {
@@ -27,13 +28,15 @@ export function BottomTabBar() {
         } = await supabase.auth.getUser()
 
         if (user) {
-          const { data: userData } = await supabase.from("users").select("role").eq("id", user.id).single()
-
-          setUserRole(userData?.role || "user")
+          const userEmail = user.email?.toLowerCase()
+          
+          if (userEmail && DEBUG_ADMIN_EMAILS.includes(userEmail)) {
+            setIsAdmin(true)
+            console.log("[v0] Admin user detected, showing admin tab")
+          }
         }
       } catch (error) {
         console.error("[v0] Failed to check user role:", error)
-        // Silently fail - user will just not see admin tab
       }
     }
 
@@ -113,7 +116,7 @@ export function BottomTabBar() {
     { href: "advertise-menu", label: "Advertise", icon: Megaphone, isMenu: true },
     { href: "/resources", label: "Resources", icon: BookOpen },
     { href: "/favorites", label: "Favorites", icon: Heart, badge: favoritesCount },
-    ...(userRole === "admin" ? [{ href: "/admin", label: "Admin", icon: Shield }] : []),
+    ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: Shield, isAdmin: true }] : []),
     { href: "/profile", label: "Profile", icon: User },
   ]
 
@@ -175,12 +178,14 @@ export function BottomTabBar() {
                   href={tab.href}
                   className={`relative flex min-w-[44px] flex-col items-center justify-center gap-1 rounded-lg px-3 py-2 transition-colors ${
                     active ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                  } ${
+                    tab.isAdmin ? "ring-2 ring-purple-500/50" : ""
                   }`}
                   aria-label={tab.label}
                   aria-current={active ? "page" : undefined}
                 >
-                  <Icon className={`h-5 w-5 ${active ? "fill-primary" : ""}`} />
-                  <span className="text-xs font-medium">{tab.label}</span>
+                  <Icon className={`h-5 w-5 ${active ? "fill-primary" : ""} ${tab.isAdmin ? "text-purple-600" : ""}`} />
+                  <span className={`text-xs font-medium ${tab.isAdmin ? "text-purple-600" : ""}`}>{tab.label}</span>
                   {tab.badge !== undefined && tab.badge > 0 && (
                     <Badge
                       variant="destructive"

@@ -226,61 +226,15 @@ export default function AdvertisePage() {
 
       if (response.ok) {
         console.log("[v0] ADVERTISE_EMAIL_SENT")
+        setStep("success")
+        window.scrollTo({ top: 0, behavior: "smooth" })
       } else {
         console.error("[v0] ADVERTISE_EMAIL_FAILED", await response.text())
+        alert("Submission failed. Please try again.")
       }
     } catch (error) {
       console.error("[v0] ADVERTISE_EMAIL_ERROR", error)
-    }
-
-    if (!BILLING_ENABLED) {
-      if (submissionType === "venue" && venueListingType === "community") {
-        // Community venues always free, proceed to success
-        console.log("[v0] BILLING_DISABLED - Community venue, proceeding to success")
-        handleSaveCommunityVenue() // Use specific handler for community venues
-        setStep("success")
-        window.scrollTo({ top: 0, behavior: "smooth" })
-        return
-      } else {
-        // Paid submissions: show modal and save as pending
-        console.log("[v0] BILLING_DISABLED - Showing payment coming soon modal")
-        setShowPaymentModal(true)
-        return
-      }
-    }
-
-    // Existing logic for when BILLING_ENABLED is true
-    const rateLimitCheck = checkRateLimit(userProfile)
-    if (!rateLimitCheck.allowed) {
-      alert(rateLimitCheck.message)
-      return
-    }
-
-    const eventHash = computeEventHashSignature(
-      formData.venueAddress,
-      `${formData.eventDate} ${formData.eventTime}`,
-      formData.eventTitle,
-    )
-
-    console.log("[v0] Event hash signature:", eventHash)
-
-    // This block is only relevant when BILLING_ENABLED is true and we are not handling the community venue case above
-    // The original code had a duplicate check for !BILLING_ENABLED here which was removed.
-    // if (!BILLING_ENABLED) {
-    //   console.log("[v0] BILLING_DISABLED - Saving submission as draft")
-    //   handleSaveDraft()
-    //   return
-    // }
-
-    if (
-      !userProfile.phone_verified_at ||
-      (!userProfile.billing_payment_method_id && !userProfile.is_domain_whitelisted)
-    ) {
-      setStep("verification")
-      window.scrollTo({ top: 0, behavior: "smooth" })
-    } else {
-      setStep("checkout")
-      window.scrollTo({ top: 0, behavior: "smooth" })
+      alert("An error occurred. Please try again.")
     }
   }
 
@@ -1193,6 +1147,7 @@ export default function AdvertisePage() {
                 <Button
                   variant="outline"
                   onClick={() => {
+                    // Resetting to choice is no longer relevant as it's removed
                     setStep("entry") // Go back to entry screen
                     setSubmissionType(null)
                     setVenueListingType(null) // Reset venue type
@@ -1348,6 +1303,286 @@ export default function AdvertisePage() {
             </div>
           </CardContent>
         </Card>
+      </div>
+    )
+  }
+
+  if (step === "form") {
+    const isCommunityVenue = submissionType === "venue" && venueListingType === "community"
+
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-8">
+            <div className="mb-4 flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  // Adjusted navigation to go back to the new entry screen
+                  setStep("entry")
+                  setSubmissionType(null) // Reset submission type
+                  setVenueListingType(null) // Reset venue type
+                }}
+              >
+                ← Back
+              </Button>
+              {isCommunityVenue && (
+                <Badge variant="secondary" className="gap-1">
+                  <Gift className="h-3 w-3" />
+                  Free Community Listing
+                </Badge>
+              )}
+            </div>
+            <h1 className="mb-2 text-4xl font-bold tracking-tight text-foreground">
+              {isCommunityVenue
+                ? "Submit Community Venue"
+                : submissionType === "venue"
+                  ? "Submit Your Venue"
+                  : "Submit Your Event"}
+            </h1>
+            <p className="text-lg text-muted-foreground">
+              {isCommunityVenue
+                ? "Share a free community space like a park or playground with families"
+                : submissionType === "venue"
+                  ? "Tell us about your sensory-friendly venue"
+                  : "Tell us about your sensory-friendly event"}
+            </p>
+          </div>
+
+          <form ref={formRef} onSubmit={handleFormSubmit} className="space-y-6">
+            {/* Venue/Business Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{isCommunityVenue ? "Venue Information" : "Business Information"}</CardTitle>
+                <CardDescription>
+                  {isCommunityVenue
+                    ? "Basic details about the community space"
+                    : "Basic details about your business or organization"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="businessName">
+                    {isCommunityVenue ? "Venue Name" : submissionType === "venue" ? "Venue Name" : "Business Name"} *
+                  </Label>
+                  <Input
+                    id="businessName"
+                    required
+                    placeholder={
+                      isCommunityVenue
+                        ? "e.g., Greenwood Community Playground"
+                        : "e.g., Quiet Corner Cafe or Mindful Museum"
+                    }
+                    value={formData.businessName}
+                    onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
+                  />
+                </div>
+
+                {submissionType === "venue" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="venueAddress">Address *</Label>
+                      <Input
+                        id="venueAddress"
+                        required
+                        placeholder="123 Main Street"
+                        value={formData.venueAddress}
+                        onChange={(e) => setFormData({ ...formData, venueAddress: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="venueCity">City *</Label>
+                      <Input
+                        id="venueCity"
+                        required
+                        placeholder="Philadelphia"
+                        value={formData.venueCity}
+                        onChange={(e) => setFormData({ ...formData, venueCity: e.target.value })}
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category *</Label>
+                  <select
+                    id="category"
+                    required
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  >
+                    <option value="">Select a category</option>
+                    {isCommunityVenue ? (
+                      <>
+                        <option value="Park">Park</option>
+                        <option value="Playground">Playground</option>
+                        <option value="Garden">Garden</option>
+                        <option value="Trail">Trail</option>
+                        <option value="Beach">Beach</option>
+                        <option value="Other">Other Public Space</option>
+                      </>
+                    ) : (
+                      <>
+                        {categories.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="eventDescription">
+                    Description *
+                    {isCommunityVenue && (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        (Include sensory-friendly features, quiet areas, playground type, etc.)
+                      </span>
+                    )}
+                  </Label>
+                  <textarea
+                    id="eventDescription"
+                    required
+                    rows={4}
+                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    placeholder={
+                      isCommunityVenue
+                        ? "Describe the space, its sensory-friendly features, accessibility, and what makes it special..."
+                        : "Describe your venue or event..."
+                    }
+                    value={formData.eventDescription}
+                    onChange={(e) => setFormData({ ...formData, eventDescription: e.target.value })}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Contact Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Contact Information</CardTitle>
+                <CardDescription>
+                  {isCommunityVenue ? "Optional contact details (for questions or updates)" : "How can we reach you?"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="contactName">{isCommunityVenue ? "Your Name" : "Contact Name"}</Label>
+                    <Input
+                      id="contactName"
+                      required={!isCommunityVenue}
+                      placeholder="John Smith"
+                      value={formData.contactName}
+                      onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contactEmail">Email {!isCommunityVenue && "*"}</Label>
+                    <Input
+                      id="contactEmail"
+                      type="email"
+                      required={!isCommunityVenue}
+                      placeholder="john@example.com"
+                      value={formData.contactEmail}
+                      onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="contactPhone">Phone {!isCommunityVenue && "*"}</Label>
+                    <Input
+                      id="contactPhone"
+                      type="tel"
+                      required={!isCommunityVenue}
+                      placeholder="(555) 123-4567"
+                      value={formData.contactPhone}
+                      onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contactWebsite">Website</Label>
+                    <Input
+                      id="contactWebsite"
+                      type="url"
+                      placeholder="https://example.com"
+                      value={formData.contactWebsite}
+                      onChange={(e) => setFormData({ ...formData, contactWebsite: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Sensory Features */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Sensory Features</CardTitle>
+                <CardDescription>Help families understand what to expect</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-3">
+                  {[
+                    "Quiet Space Available",
+                    "Wheelchair Accessible",
+                    "Sensory-Friendly Hours",
+                    "Low Lighting",
+                    "Natural Lighting",
+                    "Low Crowd Density",
+                    "Outdoor Space",
+                    "Soft Surfaces",
+                    "Shade Available",
+                  ].map((feature) => (
+                    <label key={feature} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.sensoryFeatures.includes(feature)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData({ ...formData, sensoryFeatures: [...formData.sensoryFeatures, feature] })
+                          } else {
+                            setFormData({
+                              ...formData,
+                              sensoryFeatures: formData.sensoryFeatures.filter((f) => f !== feature),
+                            })
+                          }
+                        }}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <span className="text-sm">{feature}</span>
+                    </label>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-accent/20 bg-accent/5">
+              <CardContent className="flex items-start gap-3 p-6">
+                <Gift className="h-6 w-6 text-accent shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="mb-1 font-semibold">Free Submission</h3>
+                  <p className="text-sm text-muted-foreground">
+                    All submissions are currently free during beta! Your submission will be reviewed by our team and published within 24-48 hours.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex gap-3">
+              <Button type="submit" size="lg" className="flex-1 gap-2">
+                <CheckCircle2 className="h-5 w-5" />
+                Submit for Review
+              </Button>
+            </div>
+          </form>
+        </div>
       </div>
     )
   }
@@ -1706,319 +1941,6 @@ export default function AdvertisePage() {
               </Card>
             </div>
           </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (step === "form") {
-    const isCommunityVenue = submissionType === "venue" && venueListingType === "community"
-
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="mx-auto max-w-3xl">
-          <div className="mb-8">
-            <div className="mb-4 flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  // Adjusted navigation to go back to the new entry screen
-                  setStep("entry")
-                  setSubmissionType(null) // Reset submission type
-                  setVenueListingType(null) // Reset venue type
-                }}
-              >
-                ← Back
-              </Button>
-              {isCommunityVenue && (
-                <Badge variant="secondary" className="gap-1">
-                  <Gift className="h-3 w-3" />
-                  Free Community Listing
-                </Badge>
-              )}
-            </div>
-            <h1 className="mb-2 text-4xl font-bold tracking-tight text-foreground">
-              {isCommunityVenue
-                ? "Submit Community Venue"
-                : submissionType === "venue"
-                  ? "Submit Your Venue"
-                  : "Submit Your Event"}
-            </h1>
-            <p className="text-lg text-muted-foreground">
-              {isCommunityVenue
-                ? "Share a free community space like a park or playground with families"
-                : submissionType === "venue"
-                  ? "Tell us about your sensory-friendly venue"
-                  : "Tell us about your sensory-friendly event"}
-            </p>
-          </div>
-
-          <form ref={formRef} onSubmit={handleFormSubmit} className="space-y-6">
-            {/* Venue/Business Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle>{isCommunityVenue ? "Venue Information" : "Business Information"}</CardTitle>
-                <CardDescription>
-                  {isCommunityVenue
-                    ? "Basic details about the community space"
-                    : "Basic details about your business or organization"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="businessName">
-                    {isCommunityVenue ? "Venue Name" : submissionType === "venue" ? "Venue Name" : "Business Name"} *
-                  </Label>
-                  <Input
-                    id="businessName"
-                    required
-                    placeholder={
-                      isCommunityVenue
-                        ? "e.g., Greenwood Community Playground"
-                        : "e.g., Quiet Corner Cafe or Mindful Museum"
-                    }
-                    value={formData.businessName}
-                    onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
-                  />
-                </div>
-
-                {submissionType === "venue" && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="venueAddress">Address *</Label>
-                      <Input
-                        id="venueAddress"
-                        required
-                        placeholder="123 Main Street"
-                        value={formData.venueAddress}
-                        onChange={(e) => setFormData({ ...formData, venueAddress: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="venueCity">City *</Label>
-                      <Input
-                        id="venueCity"
-                        required
-                        placeholder="Philadelphia"
-                        value={formData.venueCity}
-                        onChange={(e) => setFormData({ ...formData, venueCity: e.target.value })}
-                      />
-                    </div>
-                  </>
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category *</Label>
-                  <select
-                    id="category"
-                    required
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  >
-                    <option value="">Select a category</option>
-                    {isCommunityVenue ? (
-                      <>
-                        <option value="Park">Park</option>
-                        <option value="Playground">Playground</option>
-                        <option value="Garden">Garden</option>
-                        <option value="Trail">Trail</option>
-                        <option value="Beach">Beach</option>
-                        <option value="Other">Other Public Space</option>
-                      </>
-                    ) : (
-                      <>
-                        {categories.map((cat) => (
-                          <option key={cat} value={cat}>
-                            {cat}
-                          </option>
-                        ))}
-                      </>
-                    )}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="eventDescription">
-                    Description *
-                    {isCommunityVenue && (
-                      <span className="ml-1 text-xs text-muted-foreground">
-                        (Include sensory-friendly features, quiet areas, playground type, etc.)
-                      </span>
-                    )}
-                  </Label>
-                  <textarea
-                    id="eventDescription"
-                    required
-                    rows={4}
-                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    placeholder={
-                      isCommunityVenue
-                        ? "Describe the space, its sensory-friendly features, accessibility, and what makes it special..."
-                        : "Describe your venue or event..."
-                    }
-                    value={formData.eventDescription}
-                    onChange={(e) => setFormData({ ...formData, eventDescription: e.target.value })}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Contact Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Contact Information</CardTitle>
-                <CardDescription>
-                  {isCommunityVenue ? "Optional contact details (for questions or updates)" : "How can we reach you?"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="contactName">{isCommunityVenue ? "Your Name" : "Contact Name"}</Label>
-                    <Input
-                      id="contactName"
-                      required={!isCommunityVenue}
-                      placeholder="John Smith"
-                      value={formData.contactName}
-                      onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="contactEmail">Email {!isCommunityVenue && "*"}</Label>
-                    <Input
-                      id="contactEmail"
-                      type="email"
-                      required={!isCommunityVenue}
-                      placeholder="john@example.com"
-                      value={formData.contactEmail}
-                      onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="contactPhone">Phone {!isCommunityVenue && "*"}</Label>
-                    <Input
-                      id="contactPhone"
-                      type="tel"
-                      required={!isCommunityVenue}
-                      placeholder="(555) 123-4567"
-                      value={formData.contactPhone}
-                      onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="contactWebsite">Website</Label>
-                    <Input
-                      id="contactWebsite"
-                      type="url"
-                      placeholder="https://example.com"
-                      value={formData.contactWebsite}
-                      onChange={(e) => setFormData({ ...formData, contactWebsite: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Sensory Features */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Sensory Features</CardTitle>
-                <CardDescription>Help families understand what to expect</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-3">
-                  {[
-                    "Quiet Space Available",
-                    "Wheelchair Accessible",
-                    "Sensory-Friendly Hours",
-                    "Low Lighting",
-                    "Natural Lighting",
-                    "Low Crowd Density",
-                    "Outdoor Space",
-                    "Soft Surfaces",
-                    "Shade Available",
-                  ].map((feature) => (
-                    <label key={feature} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.sensoryFeatures.includes(feature)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormData({ ...formData, sensoryFeatures: [...formData.sensoryFeatures, feature] })
-                          } else {
-                            setFormData({
-                              ...formData,
-                              sensoryFeatures: formData.sensoryFeatures.filter((f) => f !== feature),
-                            })
-                          }
-                        }}
-                        className="h-4 w-4 rounded border-gray-300"
-                      />
-                      <span className="text-sm">{feature}</span>
-                    </label>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {isCommunityVenue && (
-              <Card className="border-accent/20 bg-accent/5">
-                <CardContent className="flex items-start gap-3 p-6">
-                  <Gift className="h-6 w-6 text-accent shrink-0 mt-0.5" />
-                  <div>
-                    <h3 className="mb-1 font-semibold">Free Community Listing</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Your submission will be reviewed by our team and published within 24-48 hours. No payment or
-                      billing information required. Community venues are labeled as "Community Venue" in search results.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {!isCommunityVenue && (
-              <Card className="border-muted">
-                <CardContent className="flex items-start gap-3 p-6">
-                  <Info className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      By submitting, you agree to our{" "}
-                      <Link href="/terms-of-service" className="text-[#5BC0BE] hover:underline">
-                        Terms of Service
-                      </Link>{" "}
-                      and{" "}
-                      <Link href="/refund-policy" className="text-[#5BC0BE] hover:underline">
-                        Refund & Advertising Policy
-                      </Link>
-                      . Review our policies before proceeding.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            <div className="flex gap-3">
-              <Button type="submit" size="lg" className="flex-1 gap-2">
-                {isCommunityVenue ? (
-                  <>
-                    <CheckCircle2 className="h-5 w-5" />
-                    Submit for Review
-                  </>
-                ) : (
-                  <>
-                    Continue to {submissionType === "venue" ? "Verification" : "Payment"}
-                    <ArrowRight className="h-5 w-5" />
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
         </div>
       </div>
     )
