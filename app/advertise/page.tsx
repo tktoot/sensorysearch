@@ -8,20 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import {
-  CheckCircle2,
-  MapPin,
-  CreditCard,
-  ArrowRight,
-  Gift,
-  AlertCircle,
-  Calendar,
-  Building2,
-  Star,
-  Info,
-  TreePine,
-} from "lucide-react"
-import { useRouter } from "next/navigation"
+import { CheckCircle2, MapPin, CreditCard, ArrowRight, Gift, AlertCircle, Calendar, Building2, Star, Info, TreePine } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { PhoneVerification } from "@/components/phone-verification"
 import {
   computeEventHashSignature,
@@ -125,12 +113,14 @@ export default function AdvertisePage() {
   useEffect(() => {
     const checkOrganizerStatus = async () => {
       const user = await getCurrentUser()
+      // Only redirect if user is already an organizer - they should use /submit instead
       if (user && (user.role === "organizer" || user.role === "admin")) {
         router.push("/submit")
       }
     }
     checkOrganizerStatus()
   }, [router])
+  // </CHANGE>
 
   useEffect(() => {
     const currentUser = getCurrentUser()
@@ -159,32 +149,7 @@ export default function AdvertisePage() {
     }
   }, [formData.contactEmail])
 
-  if (!isLoading && !isBusinessAccount && step !== "entry") {
-    return (
-      <div className="container mx-auto px-4 py-16">
-        <Card className="mx-auto max-w-2xl border-primary/20">
-          <CardContent className="flex flex-col items-center gap-6 p-12 text-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-              <AlertCircle className="h-10 w-10 text-primary" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-3xl font-bold text-foreground">Organizer Account Required</h2>
-              <p className="text-lg text-muted-foreground">
-                You need an organizer account to submit paid events and venues. Upgrade your account to get started.
-              </p>
-            </div>
-            <Button asChild size="lg" className="gap-2">
-              <a href="/profile">
-                <ArrowRight className="h-5 w-5" />
-                Upgrade to Organizer Account
-              </a>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
+  // Users can now access all listing options without being redirected
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-16">
@@ -194,6 +159,35 @@ export default function AdvertisePage() {
       </div>
     )
   }
+  // </CHANGE>
+
+  // The following block was removed as it's now handled by the new entry screen logic
+  // and the business account check has been removed.
+  // if (!isLoading && !isBusinessAccount && step !== "entry") {
+  //   return (
+  //     <div className="container mx-auto px-4 py-16">
+  //       <Card className="mx-auto max-w-2xl border-primary/20">
+  //         <CardContent className="flex flex-col items-center gap-6 p-12 text-center">
+  //           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+  //             <AlertCircle className="h-10 w-10 text-primary" />
+  //           </div>
+  //           <div className="space-y-2">
+  //             <h2 className="text-3xl font-bold text-foreground">Organizer Account Required</h2>
+  //             <p className="text-lg text-muted-foreground">
+  //               You need an organizer account to submit paid events and venues. Upgrade your account to get started.
+  //             </p>
+  //           </div>
+  //           <Button asChild size="lg" className="gap-2">
+  //             <a href="/profile">
+  //               <ArrowRight className="h-5 w-5" />
+  //               Upgrade to Organizer Account
+  //             </a>
+  //           </Button>
+  //         </CardContent>
+  //       </Card>
+  //     </div>
+  //   )
+  // }
 
   const scrollToForm = () => {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
@@ -203,14 +197,47 @@ export default function AdvertisePage() {
     benefitsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    console.log("[v0] ADVERTISE_FORM_SUBMIT", { type: submissionType, venueListingType })
+
+    try {
+      const response = await fetch("/api/advertise-submission", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessName: formData.businessName,
+          contactName: formData.contactName,
+          contactEmail: formData.contactEmail,
+          contactPhone: formData.contactPhone,
+          contactWebsite: formData.contactWebsite,
+          eventTitle: formData.eventTitle,
+          description: formData.eventDescription,
+          address: formData.venueAddress,
+          city: formData.venueCity,
+          category: formData.category,
+          sensoryFeatures: formData.sensoryFeatures,
+          isVenue: submissionType === "venue",
+          isEvent: submissionType === "event",
+          isFeatured: isFeaturedEvent,
+        }),
+      })
+
+      if (response.ok) {
+        console.log("[v0] ADVERTISE_EMAIL_SENT")
+      } else {
+        console.error("[v0] ADVERTISE_EMAIL_FAILED", await response.text())
+      }
+    } catch (error) {
+      console.error("[v0] ADVERTISE_EMAIL_ERROR", error)
+    }
 
     if (!BILLING_ENABLED) {
       if (submissionType === "venue" && venueListingType === "community") {
         // Community venues always free, proceed to success
         console.log("[v0] BILLING_DISABLED - Community venue, proceeding to success")
-        handleSaveDraft() // Still save the community venue
+        handleSaveCommunityVenue() // Use specific handler for community venues
         setStep("success")
         window.scrollTo({ top: 0, behavior: "smooth" })
         return
@@ -238,11 +265,12 @@ export default function AdvertisePage() {
     console.log("[v0] Event hash signature:", eventHash)
 
     // This block is only relevant when BILLING_ENABLED is true and we are not handling the community venue case above
-    if (!BILLING_ENABLED) {
-      console.log("[v0] BILLING_DISABLED - Saving submission as draft")
-      handleSaveDraft()
-      return
-    }
+    // The original code had a duplicate check for !BILLING_ENABLED here which was removed.
+    // if (!BILLING_ENABLED) {
+    //   console.log("[v0] BILLING_DISABLED - Saving submission as draft")
+    //   handleSaveDraft()
+    //   return
+    // }
 
     if (
       !userProfile.phone_verified_at ||
@@ -571,6 +599,7 @@ export default function AdvertisePage() {
     return null // Or navigate to entry or handle appropriately
   }
 
+  // The venue-type step is also removed since we now select venue type in the entry screen
   if (step === "venue-type") {
     // This step is now redundant due to the new "entry" step.
     // It's kept here to avoid breaking the original structure, but should ideally be removed.
@@ -1043,6 +1072,127 @@ export default function AdvertisePage() {
                   variant="outline"
                   onClick={() => {
                     // Resetting to choice is no longer relevant as it's removed
+                    setStep("entry") // Go back to entry screen
+                    setSubmissionType(null)
+                    setVenueListingType(null) // Reset venue type
+                    setFormData({
+                      businessName: "", // Clear form data for new submission
+                      contactName: "",
+                      contactEmail: "",
+                      contactPhone: "",
+                      contactWebsite: "",
+                      eventTitle: "",
+                      eventDescription: "",
+                      venueAddress: "",
+                      venueCity: "",
+                      eventDate: "",
+                      eventTime: "",
+                      isRecurring: false,
+                      recurringPattern: "",
+                      category: "",
+                      sensoryFeatures: [],
+                      billingName: "",
+                      billingEmail: "",
+                      billingPhone: "",
+                      saveCard: true,
+                      venuePhotos: [],
+                    })
+                    window.scrollTo({ top: 0, behavior: "smooth" })
+                  }}
+                >
+                  Add Another {submissionType === "venue" ? "Venue" : "Event"}
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // The success step is duplicated in the original code. This is the second occurrence.
+  if (step === "success") {
+    return (
+      <div className="container mx-auto px-4 py-16">
+        <Card className="mx-auto max-w-2xl border-primary/20">
+          <CardContent className="flex flex-col items-center gap-6 p-12 text-center">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+              <CheckCircle2 className="h-10 w-10 text-primary" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-3xl font-bold text-foreground">
+                {!BILLING_ENABLED
+                  ? `Your draft has been saved!`
+                  : `Thanks! Your ${submissionType} is submitted for review.`}
+              </h2>
+              <p className="text-lg text-muted-foreground">
+                {!BILLING_ENABLED
+                  ? "Payments are disabled in this preview build. Your submission has been saved as a draft."
+                  : "We'll review your submission and get back to you within 2-3 business days."}
+              </p>
+            </div>
+            {!BILLING_ENABLED && (
+              <Badge variant="secondary" className="gap-1">
+                <Info className="h-3 w-3" />
+                Draft Mode - Billing Disabled
+              </Badge>
+            )}
+            {isFreeTrial && BILLING_ENABLED && (
+              <Badge className="gap-1" variant="secondary">
+                <Gift className="h-3 w-3" />
+                First {submissionType === "venue" ? "Venue" : "Event"} Free Applied
+              </Badge>
+            )}
+            {BILLING_ENABLED && (
+              <div className="w-full space-y-3 rounded-lg bg-muted/50 p-6">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Monthly Cost</span>
+                  <span className="font-semibold text-foreground">
+                    {isFreeTrial ? (
+                      <span className="flex items-center gap-2">
+                        <span className="text-muted-foreground line-through">${basePrice.toFixed(2)}</span>
+                        <span className="text-primary">$0.00</span>
+                      </span>
+                    ) : (
+                      `$${totalMonthly.toFixed(2)}/month`
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Locations</span>
+                  <span className="font-semibold text-foreground">{locationCount}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Next Billing Date</span>
+                  <span className="font-semibold text-foreground">
+                    {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
+                {isFreeTrial && (
+                  <p className="border-t border-border pt-3 text-xs text-muted-foreground">
+                    After your free trial, regular pricing of ${basePrice.toFixed(2)}/month + $
+                    {additionalLocationPrice.toFixed(2)} per additional location will apply.
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="flex gap-3">
+              <Button onClick={() => router.push("/organizer-account")}>
+                {!BILLING_ENABLED ? "Back to Dashboard" : "View Dashboard"}
+              </Button>
+              {!BILLING_ENABLED && (
+                <Button variant="outline" onClick={() => router.push("/organizer-account")}>
+                  View Draft
+                </Button>
+              )}
+              {BILLING_ENABLED && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
                     setStep("entry") // Go back to entry screen
                     setSubmissionType(null)
                     setVenueListingType(null) // Reset venue type

@@ -117,14 +117,41 @@ export default function IntroPage() {
 
         console.log("[v0] AUTH_SIGN_UP_SUCCESS", { email })
 
+        if (data.user) {
+          const { error: profileError } = await supabase.from("users").upsert(
+            {
+              id: data.user.id,
+              email: data.user.email,
+              role: "user",
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "id" },
+          )
+
+          if (profileError) {
+            console.error("[v0] PROFILE_UPSERT_ERROR", profileError)
+          } else {
+            console.log("[v0] PROFILE_UPSERT_SUCCESS", { userId: data.user.id })
+          }
+
+          fetch("/api/notify-signup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, userId: data.user.id }),
+          }).catch((err) => console.error("[v0] Failed to notify admin:", err))
+        }
+
         if (data.user && !data.session) {
-          setError("Please check your email to confirm your account before signing in.")
+          setError(
+            "Please check your email to confirm your account. If you don't see the email, check your spam folder or contact support.",
+          )
         } else {
           localStorage.setItem("introCompleted", "true")
           router.push("/discover")
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
@@ -132,6 +159,24 @@ export default function IntroPage() {
         if (error) throw error
 
         console.log("[v0] AUTH_SIGN_IN_SUCCESS", { email })
+
+        if (data.user) {
+          const { error: profileError } = await supabase.from("users").upsert(
+            {
+              id: data.user.id,
+              email: data.user.email,
+              role: "user",
+              last_login_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "id" },
+          )
+
+          if (profileError) {
+            console.error("[v0] PROFILE_UPSERT_ERROR", profileError)
+          }
+        }
+
         localStorage.setItem("introCompleted", "true")
         router.push("/discover")
       }

@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,10 +10,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, CheckCircle2, TreePine, Upload, Info } from "lucide-react"
+import { ArrowLeft, CheckCircle2, TreePine, Info } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import type { Venue } from "@/lib/mock-data"
+import { PhotoUploader } from "@/components/photo-uploader"
 
 const VENUE_TYPES = ["Park", "Playground", "Trail", "Other"] as const
 const FEATURES = [
@@ -30,6 +30,7 @@ export default function SubmitCommunityVenuePage() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [images, setImages] = useState<string[]>([])
 
   const [formData, setFormData] = useState({
     email: "",
@@ -91,7 +92,7 @@ export default function SubmitCommunityVenuePage() {
       features: formData.features,
       website: formData.website || undefined,
       contactEmail: formData.email,
-      imageUrl: "/park-playground.jpg",
+      imageUrl: images[0] || "/park-playground.jpg",
       rating: 0,
       reviewCount: 0,
       ageRange: ["all"],
@@ -391,15 +392,7 @@ export default function SubmitCommunityVenuePage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Photos (Coming Soon)</Label>
-                <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 p-8 text-center">
-                  <div className="space-y-2">
-                    <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Photo upload will be available soon</p>
-                  </div>
-                </div>
-              </div>
+              <PhotoUploader images={images} onChange={setImages} entityType="venue" maxFiles={6} maxSizeMB={5} />
             </CardContent>
           </Card>
 

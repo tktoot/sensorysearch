@@ -11,10 +11,11 @@ import { toast } from "sonner"
 interface FavoriteButtonProps {
   listingId: string
   listingName: string
+  listingType?: string
   className?: string
 }
 
-export function FavoriteButton({ listingId, listingName, className }: FavoriteButtonProps) {
+export function FavoriteButton({ listingId, listingName, listingType = "listing", className }: FavoriteButtonProps) {
   const [isFavorited, setIsFavorited] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -34,7 +35,7 @@ export function FavoriteButton({ listingId, listingName, className }: FavoriteBu
       const response = await fetch("/api/favorites/toggle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ listingId }),
+        body: JSON.stringify({ listingId, listingType }),
       })
 
       if (!response.ok) {

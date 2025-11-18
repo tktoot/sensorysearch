@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ImageUpload } from "@/components/image-upload"
+import { PhotoUploader } from "@/components/photo-uploader"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
@@ -319,7 +319,7 @@ export default function SubmitParkPage() {
               </div>
             </div>
 
-            <ImageUpload images={images} onChange={setImages} />
+            <PhotoUploader images={images} onChange={setImages} entityType="park" maxFiles={6} maxSizeMB={5} />
 
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? (

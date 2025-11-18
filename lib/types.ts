@@ -13,3 +13,13 @@ export interface ServerAuthUser {
   email: string
   role: UserRole
 }
+
+export interface SubmissionNotificationData {
+  title: string
+  type: string
+  submitterEmail: string
+  submissionId: string
+  images?: string[]
+  address?: string
+  date?: string
+}

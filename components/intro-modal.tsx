@@ -6,9 +6,15 @@ import { useRouter, usePathname } from "next/navigation"
 export function IntroModal() {
   const router = useRouter()
   const pathname = usePathname()
-  const [shouldShowIntro, setShouldShowIntro] = useState(false)
+  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isClient) return
+
     // Don't show intro if already on intro page
     if (pathname === "/intro") {
       return
@@ -19,10 +25,9 @@ export function IntroModal() {
 
     if (!introCompleted) {
       // Show intro on first visit
-      setShouldShowIntro(true)
       router.push("/intro")
     }
-  }, [pathname, router])
+  }, [pathname, router, isClient])
 
   return null
 }

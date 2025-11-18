@@ -209,5 +209,5 @@ See `.env.example` for all required environment variables.
 MIT
 \`\`\`
 
-```text file=".nvmrc"
+\`\`\`text file=".nvmrc"
 20

@@ -20,15 +20,20 @@ export function BottomTabBar() {
 
   useEffect(() => {
     const checkUserRole = async () => {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      try {
+        const supabase = createClient()
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
 
-      if (user) {
-        const { data: userData } = await supabase.from("users").select("role").eq("id", user.id).single()
+        if (user) {
+          const { data: userData } = await supabase.from("users").select("role").eq("id", user.id).single()
 
-        setUserRole(userData?.role || "user")
+          setUserRole(userData?.role || "user")
+        }
+      } catch (error) {
+        console.error("[v0] Failed to check user role:", error)
+        // Silently fail - user will just not see admin tab
       }
     }
 

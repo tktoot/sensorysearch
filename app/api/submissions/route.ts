@@ -1,39 +1,67 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerUser } from "@/lib/auth-server"
-import { sendSubmissionNotification } from "@/lib/email-utils"
 import { createClient } from "@/lib/supabase/server"
+import { sendSubmissionNotification } from "@/lib/email-utils"
+import { logApiRequest, logApiSuccess, logApiError } from "@/lib/api-logger"
+import { submissionSchema } from "@/lib/validation-schemas"
+import { ZodError } from "zod"
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+
   try {
-    // Check auth
     const user = await getServerUser()
-    if (!user || (user.role !== "organizer" && user.role !== "admin")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
 
     const body = await request.json()
-    const {
-      type,
-      title,
-      description,
-      address,
-      date,
-      time,
-      hours,
-      website,
-      contactEmail,
-      phone,
-      sensoryAttributes,
-      images,
-    } = body
+    logApiRequest({
+      route: "/api/submissions",
+      method: "POST",
+      userId: user?.id,
+      email: user?.email,
+      body,
+    })
 
-    // Validate required fields
-    if (!type || !title || !description || !address) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized - Please sign in" }, { status: 401 })
     }
 
-    // Create submission in database
+    let validatedData
+    try {
+      validatedData = submissionSchema.parse(body)
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const formattedErrors = error.errors.map((err) => ({
+          field: err.path.join("."),
+          message: err.message,
+        }))
+
+        logApiError({
+          route: "/api/submissions",
+          method: "POST",
+          userId: user.id,
+          error: { message: "Validation failed", errors: formattedErrors },
+        })
+
+        return NextResponse.json(
+          {
+            error: "Validation failed",
+            details: formattedErrors,
+          },
+          { status: 400 },
+        )
+      }
+      throw error
+    }
+
+    const { type, title, description, address, hours, website, contactEmail, phone, sensoryAttributes, images } =
+      validatedData
+
+    // Extract date and time for events
+    const date = "date" in validatedData ? validatedData.date : null
+    const time = "time" in validatedData ? validatedData.time : null
+
     const supabase = await createClient()
+
     const { data: submission, error } = await supabase
       .from("listings")
       .insert({
@@ -44,39 +72,48 @@ export async function POST(request: NextRequest) {
         city: address.city,
         state: address.state,
         zip: address.zip,
-        date: date || null,
-        time: time || null,
+        event_date: date || null,
+        event_start_time: time || null,
         hours: hours || null,
         website: website || null,
-        contact_email: contactEmail || null,
+        email: contactEmail || null,
         phone: phone || null,
-        sensory_attributes: sensoryAttributes,
+        sensory_features: sensoryAttributes
+          ? Object.keys(sensoryAttributes).filter((k) => sensoryAttributes[k as keyof typeof sensoryAttributes])
+          : [],
         images: images || [],
         status: "pending",
-        submitted_by: user.id,
+        organizer_id: user.id,
+        organizer_email: user.email,
         submitted_at: new Date().toISOString(),
+        source: "organizer_submission",
       })
       .select()
       .single()
 
     if (error) {
       console.error("[v0] Database error:", error)
-      return NextResponse.json({ error: "Failed to create submission" }, { status: 500 })
+      logApiError({
+        route: "/api/submissions",
+        method: "POST",
+        userId: user.id,
+        error,
+      })
+      return NextResponse.json({ error: "Failed to create submission: " + error.message }, { status: 500 })
     }
 
-    // Send email notification
-    const emailSent = await sendSubmissionNotification({
-      title,
-      type: type.charAt(0).toUpperCase() + type.slice(1),
-      submitterEmail: user.email,
-      submissionId: submission.id,
-      images,
-      address: `${address.street}, ${address.city}, ${address.state} ${address.zip}`,
-      date: date ? `${date} at ${time}` : undefined,
-    })
-
-    if (!emailSent) {
-      console.warn("[v0] Email notification failed, but submission was saved")
+    try {
+      await sendSubmissionNotification({
+        type,
+        title,
+        description,
+        submitterEmail: user.email || "unknown",
+        submissionId: submission.id,
+        images: images || [],
+      })
+    } catch (emailError) {
+      console.error("[v0] Email notification failed:", emailError)
+      // Don't fail the submission if email fails
     }
 
     console.log("[v0] SUBMISSION_CREATED", {
@@ -84,12 +121,25 @@ export async function POST(request: NextRequest) {
       type,
       title,
       submitter: user.email,
-      emailSent,
+      images: images?.length || 0,
+    })
+
+    const duration = Date.now() - startTime
+    logApiSuccess({
+      route: "/api/submissions",
+      method: "POST",
+      userId: user.id,
+      duration,
     })
 
     return NextResponse.json({ success: true, id: submission.id })
   } catch (error) {
     console.error("[v0] Submission error:", error)
+    logApiError({
+      route: "/api/submissions",
+      method: "POST",
+      error,
+    })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

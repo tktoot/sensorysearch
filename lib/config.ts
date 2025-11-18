@@ -19,9 +19,13 @@ export const BETA_ENABLED = process.env.NEXT_PUBLIC_BETA_ENABLED === "true"
 export const BETA_FREE_MONTHS = Number.parseInt(process.env.NEXT_PUBLIC_BETA_FREE_MONTHS || "3", 10)
 export const BETA_NOTIFY_EMAIL = process.env.BETA_NOTIFY_EMAIL || "tktoot1@yahoo.com"
 export const UPLOAD_MAX_MB = Number.parseInt(process.env.UPLOAD_MAX_MB || "5", 10)
-export const UPLOAD_MAX_IMAGES = Number.parseInt(process.env.UPLOAD_MAX_IMAGES || "5", 10)
+export const UPLOAD_MAX_IMAGES = Number.parseInt(process.env.UPLOAD_MAX_IMAGES || "6", 10)
 
-export const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "tktoot1@yahoo.com")
+export const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "tktoot1@yahoo.com,tktut1@yahoo.com")
+  .split(",")
+  .map((email) => email.trim().toLowerCase())
+
+export const DEBUG_ADMIN_EMAILS = (process.env.DEBUG_ADMIN_EMAILS || process.env.ADMIN_EMAILS || "tktoot1@yahoo.com")
   .split(",")
   .map((email) => email.trim().toLowerCase())
 
@@ -39,3 +43,4 @@ console.log("[v0] CONFIG_LOADED - Beta notify email:", BETA_NOTIFY_EMAIL)
 console.log("[v0] CONFIG_LOADED - Upload max MB:", UPLOAD_MAX_MB)
 console.log("[v0] CONFIG_LOADED - Upload max images:", UPLOAD_MAX_IMAGES)
 console.log("[v0] CONFIG_LOADED - Admin emails:", ADMIN_EMAILS)
+console.log("[v0] CONFIG_LOADED - Debug admin emails:", DEBUG_ADMIN_EMAILS)

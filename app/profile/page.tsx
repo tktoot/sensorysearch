@@ -7,26 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Heart,
-  Calendar,
-  MapPin,
-  Briefcase,
-  ArrowRight,
-  Star,
-  Music,
-  Building,
-  Palette,
-  Shield,
-  LogOut,
-} from "lucide-react"
+import { Heart, Calendar, MapPin, Briefcase, ArrowRight, Star, Music, Building, Palette, Shield, LogOut } from 'lucide-react'
 import { mockVenues, mockEvents, type UserProfile, type Event } from "@/lib/mock-data"
 import { ProfileOnboarding } from "@/components/profile-onboarding"
 import { ProfileBanner } from "@/components/profile-banner"
 import { ProfileDetailsDrawer } from "@/components/profile-details-drawer"
 import { ProfileErrorBoundary } from "@/components/profile-error-boundary"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter } from 'next/navigation'
 import { getUserFavorites } from "@/lib/user-utils"
 import { BILLING_ENABLED } from "@/lib/config"
 import { createClient } from "@/lib/supabase/client"
@@ -185,8 +173,10 @@ function ProfilePageContent() {
   }
 
   const handleSignOut = async () => {
+    console.log("[v0] SIGN_OUT_INITIATED")
     const supabase = createClient()
-    const { error } = await supabase.auth.signOut()
+
+    const { error } = await supabase.auth.signOut({ scope: "local" })
 
     if (error) {
       console.error("[v0] SIGN_OUT_ERROR", error)
@@ -196,13 +186,24 @@ function ProfilePageContent() {
         variant: "destructive",
       })
     } else {
-      console.log("[v0] SIGN_OUT_SUCCESS")
+      console.log("[v0] SIGN_OUT_SUCCESS - Clearing all local state")
+
+      // Clear all local storage data
+      localStorage.clear()
+
+      // Clear session storage as well
+      sessionStorage.clear()
+
       toast({
         title: "Signed out",
         description: "You've been signed out successfully",
       })
+
       setIsAuthenticated(false)
-      router.push("/discover")
+      setUserProfile(null)
+
+      // Force a hard redirect to intro page to ensure clean state
+      window.location.href = "/intro"
     }
   }
 
@@ -282,49 +283,47 @@ function ProfilePageContent() {
       <div className="container relative mx-auto px-4 py-6">
         <ProfileBanner />
 
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-teal-600 text-lg font-bold text-white shadow-md">
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-teal-600 text-lg font-bold text-white shadow-md shrink-0">
               {initials}
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight text-gradient">Welcome back, {firstName}!</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-gradient truncate">Welcome back, {firstName}!</h1>
                 {userProfile.role === "admin" && (
                   <Badge
                     variant="secondary"
-                    className="gap-1 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
+                    className="gap-1 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 shrink-0"
                   >
                     <Shield className="h-3 w-3" />
                     Admin
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="link"
-                  className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowProfileDrawer(true)}
-                >
-                  Edit Profile <ArrowRight className="ml-1 h-3 w-3" />
-                </Button>
-                {isAuthenticated && (
-                  <>
-                    <span className="text-muted-foreground">•</span>
-                    <Button
-                      variant="link"
-                      className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground"
-                      onClick={handleSignOut}
-                    >
-                      <LogOut className="mr-1 h-3 w-3" />
-                      Sign Out
-                    </Button>
-                  </>
-                )}
-              </div>
+              <Button
+                variant="link"
+                className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground"
+                onClick={() => setShowProfileDrawer(true)}
+              >
+                Edit Profile <ArrowRight className="ml-1 h-3 w-3" />
+              </Button>
             </div>
           </div>
+
+          {isAuthenticated && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 shrink-0 border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-red-900/30 dark:hover:bg-red-950/20"
+              onClick={handleSignOut}
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </Button>
+          )}
         </div>
+        {/* </CHANGE> */}
 
         <div className="mb-6">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your Activity</h2>
