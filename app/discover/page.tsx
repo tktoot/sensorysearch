@@ -5,10 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { MapPin, Star, Volume2, Sun, Users, Calendar, Clock } from "lucide-react"
+import { MapPin, Star, Volume2, Sun, Users, Calendar, Clock } from 'lucide-react'
 import {
-  mockVenues,
-  mockEvents,
   filterEventsByAge,
   filterActiveEvents,
   type UserProfile,
@@ -24,6 +22,7 @@ import { FavoriteButton } from "@/components/favorite-button"
 import { EmptyState } from "@/components/empty-state"
 import { SkeletonCard } from "@/components/skeleton-card"
 import { OpenInMapsButton } from "@/components/open-in-maps-button"
+import { createClient } from "@/lib/supabase/client"
 
 export default function DiscoverPage() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -36,6 +35,7 @@ export default function DiscoverPage() {
   const [venues, setVenues] = useState<Venue[]>([])
   const [events, setEvents] = useState<Event[]>([])
   const [showSearchOverlay, setShowSearchOverlay] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const savedProfile = localStorage.getItem("userProfile")
@@ -43,28 +43,92 @@ export default function DiscoverPage() {
       setUserProfile(JSON.parse(savedProfile))
     }
 
-    const storedVenues = localStorage.getItem("venues")
-    const storedEvents = localStorage.getItem("events")
+    const fetchApprovedListings = async () => {
+      try {
+        console.log("[v0] DISCOVER_FETCH: Fetching approved listings from Supabase...")
+        const supabase = createClient()
+        
+        const { data, error } = await supabase
+          .from("listings")
+          .select("*")
+          .eq("status", "approved")
+          .order("submitted_at", { ascending: false })
 
-    if (storedVenues) {
-      setVenues(JSON.parse(storedVenues))
-      console.log("[v0] DISCOVER_LOADED - Venues from localStorage:", JSON.parse(storedVenues).length)
-    } else {
-      setVenues(mockVenues)
-      console.log("[v0] DISCOVER_LOADED - Using mock venues")
+        if (error) {
+          console.error("[v0] DISCOVER_FETCH_ERROR:", error)
+          setLoading(false)
+          return
+        }
+
+        console.log("[v0] DISCOVER_FETCH_SUCCESS:", {
+          total: data?.length || 0,
+          venues: data?.filter(d => d.type === 'venue').length || 0,
+          events: data?.filter(d => d.type === 'event').length || 0,
+        })
+
+        const approvedVenues: Venue[] = data
+          .filter(item => item.type === 'venue')
+          .map(item => ({
+            id: item.id,
+            name: item.title,
+            description: item.description,
+            category: item.sensory_features?.includes('lowNoise') ? 'Quiet Space' : 'Indoor',
+            address: item.address,
+            city: item.city,
+            state: item.state,
+            coordinates: item.coordinates || { lat: 0, lng: 0 },
+            rating: 4.5,
+            imageUrl: item.images?.[0] || '/placeholder.svg',
+            sensoryAttributes: {
+              noiseLevel: item.sensory_features?.includes('lowNoise') ? 'Quiet' : 'Moderate',
+              lighting: item.sensory_features?.includes('gentleLighting') ? 'Soft' : 'Natural',
+              crowdDensity: item.sensory_features?.includes('crowdManaged') ? 'Low' : 'Moderate',
+            },
+            tags: item.sensory_features || [],
+            listingType: 'business',
+          }))
+
+        const approvedEvents: Event[] = data
+          .filter(item => item.type === 'event')
+          .map(item => ({
+            id: item.id,
+            name: item.title,
+            description: item.description,
+            venueName: item.title,
+            city: item.city,
+            date: item.event_date || new Date().toISOString(),
+            time: item.event_start_time || '10:00 AM',
+            capacity: 50,
+            registered: 0,
+            imageUrl: item.images?.[0] || '/placeholder.svg',
+            coordinates: item.coordinates || { lat: 0, lng: 0 },
+            sensoryAttributes: {
+              noiseLevel: item.sensory_features?.includes('lowNoise') ? 'Quiet' : 'Moderate',
+              lighting: item.sensory_features?.includes('gentleLighting') ? 'Soft' : 'Natural',
+              crowdDensity: item.sensory_features?.includes('crowdManaged') ? 'Low' : 'Moderate',
+            },
+            tags: item.sensory_features || [],
+            ageGroups: ['all ages'],
+          }))
+
+        setVenues(approvedVenues)
+        setEvents(approvedEvents)
+
+        console.log("[v0] DISCOVER_LOADED - Loaded from Supabase:", {
+          venues: approvedVenues.length,
+          events: approvedEvents.length
+        })
+      } catch (err) {
+        console.error("[v0] DISCOVER_FETCH_FAILED:", err)
+      } finally {
+        setLoading(false)
+      }
     }
 
-    if (storedEvents) {
-      setEvents(JSON.parse(storedEvents))
-      console.log("[v0] DISCOVER_LOADED - Events from localStorage:", JSON.parse(storedEvents).length)
-    } else {
-      setEvents(mockEvents)
-      console.log("[v0] DISCOVER_LOADED - Using mock events")
-    }
+    fetchApprovedListings()
 
     const params = new URLSearchParams(window.location.search)
     const q = params.get("q")
-    const type = params.get("type")
 
     if (q) {
       setSearchQuery(q)
@@ -80,7 +144,6 @@ export default function DiscoverPage() {
   )
 
   if (locationPreferences.location) {
-    // Only filter venues that have valid coordinates
     filteredVenues = filterByDistance(filteredVenues, locationPreferences.location, locationPreferences.radius)
   }
 
@@ -93,7 +156,6 @@ export default function DiscoverPage() {
   )
 
   if (locationPreferences.location) {
-    // Only filter events that have valid coordinates
     filteredEvents = filterByDistance(filteredEvents, locationPreferences.location, locationPreferences.radius)
   }
 

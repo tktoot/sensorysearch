@@ -46,6 +46,8 @@ export default function SubmitEventPage() {
     e.preventDefault()
     setErrors({})
 
+    console.log("[v0] EVENT_SUBMIT: Starting submission...")
+
     // Validation
     const newErrors: Record<string, string> = {}
     if (!formData.title.trim()) newErrors.title = "Title is required"
@@ -63,6 +65,7 @@ export default function SubmitEventPage() {
     }
 
     if (Object.keys(newErrors).length > 0) {
+      console.log("[v0] EVENT_SUBMIT: Validation errors", newErrors)
       setErrors(newErrors)
       toast({
         title: "Validation Error",
@@ -72,41 +75,59 @@ export default function SubmitEventPage() {
       return
     }
 
+    console.log("[v0] EVENT_SUBMIT: Validation passed, submitting to API...")
     setSubmitting(true)
 
     try {
+      const payload = {
+        type: "event",
+        title: formData.title,
+        description: formData.description,
+        address: {
+          street: formData.street,
+          city: formData.city,
+          state: formData.state,
+          zip: formData.zip,
+        },
+        date: formData.date,
+        time: formData.time,
+        website: formData.website ? normalizeUrl(formData.website) : "",
+        contactEmail: formData.contactEmail,
+        phone: formData.phone,
+        sensoryAttributes: {
+          lowNoise: formData.lowNoise,
+          gentleLighting: formData.gentleLighting,
+          crowdManaged: formData.crowdManaged,
+          quietRoom: formData.quietRoom,
+          visualAids: formData.visualAids,
+        },
+        images,
+      }
+
+      console.log("[v0] EVENT_SUBMIT: Payload prepared", {
+        type: payload.type,
+        title: payload.title,
+        imageCount: payload.images.length,
+        date: payload.date,
+        time: payload.time,
+      })
+
       const response = await fetch("/api/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "event",
-          title: formData.title,
-          description: formData.description,
-          address: {
-            street: formData.street,
-            city: formData.city,
-            state: formData.state,
-            zip: formData.zip,
-          },
-          date: formData.date,
-          time: formData.time,
-          website: formData.website ? normalizeUrl(formData.website) : "",
-          contactEmail: formData.contactEmail,
-          phone: formData.phone,
-          sensoryAttributes: {
-            lowNoise: formData.lowNoise,
-            gentleLighting: formData.gentleLighting,
-            crowdManaged: formData.crowdManaged,
-            quietRoom: formData.quietRoom,
-            visualAids: formData.visualAids,
-          },
-          images,
-        }),
+        body: JSON.stringify(payload),
       })
 
+      console.log("[v0] EVENT_SUBMIT: API response status", response.status)
+
       if (!response.ok) {
-        throw new Error("Submission failed")
+        const errorData = await response.json()
+        console.error("[v0] EVENT_SUBMIT: API error", errorData)
+        throw new Error(errorData.error || "Submission failed")
       }
+
+      const result = await response.json()
+      console.log("[v0] EVENT_SUBMIT: Success!", result)
 
       toast({
         title: "Submitted for Review",
@@ -115,10 +136,10 @@ export default function SubmitEventPage() {
 
       router.push("/organizer")
     } catch (error) {
-      console.error("[v0] Submission error:", error)
+      console.error("[v0] EVENT_SUBMIT: Error", error)
       toast({
         title: "Submission Failed",
-        description: "Please try again later",
+        description: error instanceof Error ? error.message : "Please try again later",
         variant: "destructive",
       })
     } finally {

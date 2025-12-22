@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,16 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import {
-  Building2,
-  CreditCard,
-  CheckCircle2,
-  ArrowRight,
-  ArrowLeft,
-  AlertCircle,
-  Loader2,
-  ChevronDown,
-} from "lucide-react"
+import { Building2, CreditCard, CheckCircle2, ArrowRight, ArrowLeft, AlertCircle, Loader2, ChevronDown } from 'lucide-react'
 import { PhoneVerification } from "@/components/phone-verification"
 import { getCurrentUser, setCurrentUser } from "@/lib/auth-utils"
 import { createOrRetrieveCustomer, addPaymentMethod } from "@/lib/stripe-actions"
@@ -30,7 +21,7 @@ import type { UserProfile } from "@/lib/mock-data"
 export default function UpgradeOrganizerPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [step, setStep] = useState<1 | 2>(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [debugDetails, setDebugDetails] = useState("")
@@ -42,16 +33,12 @@ export default function UpgradeOrganizerPage() {
     business_contact_phone: "",
   })
 
-  const [phoneVerified, setPhoneVerified] = useState(false)
-  const [verifiedPhone, setVerifiedPhone] = useState("")
-
   useEffect(() => {
     const currentUser = getCurrentUser()
     if (currentUser?.role === "admin") {
       setIsAdmin(true)
     }
 
-    // If already an organizer, redirect to dashboard
     if (currentUser?.role === "organizer" || currentUser?.role === "business") {
       router.push("/organizer-account")
     }
@@ -69,18 +56,10 @@ export default function UpgradeOrganizerPage() {
 
     console.log("[v0] Step 1 complete - Organizer info submitted", organizerInfo)
 
-    // Simulate validation
     await new Promise((resolve) => setTimeout(resolve, 500))
 
     setLoading(false)
     setStep(2)
-  }
-
-  const handlePhoneVerified = (phoneNumber: string) => {
-    console.log("[v0] PHONE_VERIFIED - Phone verification successful", { phoneNumber })
-    setPhoneVerified(true)
-    setVerifiedPhone(phoneNumber)
-    setStep(3)
   }
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
@@ -92,17 +71,14 @@ export default function UpgradeOrganizerPage() {
     try {
       let currentUser = getCurrentUser()
 
-      // If no currentUser, try to get from userProfile
       if (!currentUser) {
         const savedProfile = localStorage.getItem("userProfile")
         if (savedProfile) {
           const profile: UserProfile = JSON.parse(savedProfile)
-          // Create a currentUser from the profile
           currentUser = {
             email: profile.email,
             role: profile.role || "user",
           }
-          // Save it to currentUser storage for future use
           setCurrentUser(currentUser)
           console.log("[v0] Created currentUser from userProfile", currentUser)
         }
@@ -112,9 +88,8 @@ export default function UpgradeOrganizerPage() {
         throw new Error("No user found. Please log in or create a profile first.")
       }
 
-      console.log("[v0] Step 3 - Adding payment method", { user_id: currentUser.email })
+      console.log("[v0] Step 2 - Adding payment method", { user_id: currentUser.email })
 
-      // Create or retrieve Stripe customer
       const customerResult = await createOrRetrieveCustomer(currentUser.email, organizerInfo.business_contact_email)
 
       if (!customerResult.success) {
@@ -124,7 +99,6 @@ export default function UpgradeOrganizerPage() {
         return
       }
 
-      // Simulate adding payment method
       const paymentResult = await addPaymentMethod(currentUser.email, "pm_test_123")
 
       if (!paymentResult.success) {
@@ -136,14 +110,12 @@ export default function UpgradeOrganizerPage() {
 
       console.log("[v0] PM_ADDED - Payment method added successfully")
 
-      // Update user role to organizer
       const updatedUser = {
         ...currentUser,
         role: "organizer" as const,
       }
       setCurrentUser(updatedUser)
 
-      // Update profile in localStorage
       const savedProfile = localStorage.getItem("userProfile")
       if (savedProfile) {
         const profile: UserProfile = JSON.parse(savedProfile)
@@ -155,8 +127,7 @@ export default function UpgradeOrganizerPage() {
           has_payment_method_on_file: true,
           business_name: organizerInfo.business_name,
           business_contact_phone: organizerInfo.business_contact_phone,
-          phone_number: verifiedPhone,
-          phone_verified_at: new Date().toISOString(),
+          phone_number: organizerInfo.business_contact_phone,
           billing_customer_id: customerResult.customerId,
         }
         localStorage.setItem("userProfile", JSON.stringify(updatedProfile))
@@ -170,10 +141,8 @@ export default function UpgradeOrganizerPage() {
         description: "Your organizer account has been created.",
       })
 
-      // Small delay to show success state
       await new Promise((resolve) => setTimeout(resolve, 500))
 
-      // Redirect to organizer dashboard
       router.push("/organizer-account")
     } catch (err) {
       console.error("[v0] UPGRADE_ERROR - Failed to complete upgrade", err)
@@ -184,7 +153,7 @@ export default function UpgradeOrganizerPage() {
     }
   }
 
-  const progressPercentage = (step / 3) * 100
+  const progressPercentage = (step / 2) * 100
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
@@ -196,7 +165,7 @@ export default function UpgradeOrganizerPage() {
       {/* Progress Bar */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium">Step {step} of 3</span>
+          <span className="text-sm font-medium">Step {step} of 2</span>
           <span className="text-sm text-muted-foreground">{Math.round(progressPercentage)}% complete</span>
         </div>
         <Progress value={progressPercentage} className="h-2" />
@@ -287,19 +256,8 @@ export default function UpgradeOrganizerPage() {
         </Card>
       )}
 
-      {/* Step 2: Phone Verification */}
+      {/* Step 2: Payment Method */}
       {step === 2 && (
-        <div className="space-y-4">
-          <PhoneVerification onVerified={handlePhoneVerified} initialPhone={organizerInfo.business_contact_phone} />
-          <Button variant="outline" onClick={() => setStep(1)} className="w-full gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-        </div>
-      )}
-
-      {/* Step 3: Payment Method */}
-      {step === 3 && (
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
@@ -381,7 +339,7 @@ export default function UpgradeOrganizerPage() {
                     </>
                   )}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setStep(2)} disabled={loading}>
+                <Button type="button" variant="outline" onClick={() => setStep(1)} disabled={loading}>
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
               </div>

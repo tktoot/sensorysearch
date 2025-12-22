@@ -6,7 +6,6 @@ import { Home, Heart, User, Megaphone, BookOpen, Shield } from 'lucide-react'
 import { useState, useEffect } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { getGuestFavorites } from "@/lib/guest-store"
-import { Badge } from "@/components/ui/badge"
 import { createClient } from "@/lib/supabase/client"
 import { DEBUG_ADMIN_EMAILS } from "@/lib/config"
 
@@ -127,10 +126,12 @@ export function BottomTabBar() {
   ]
 
   const isActive = (href: string) => {
+    if (!pathname) return false
+    
     if (href === "advertise-menu") {
-      return pathname?.startsWith("/advertise") || pathname === "/submit-community-venue"
+      return pathname.startsWith("/advertise") || pathname === "/submit-community-venue"
     }
-    return pathname === href || pathname?.startsWith(href)
+    return pathname === href || pathname.startsWith(href)
   }
 
   const handleTabClick = (tab: (typeof tabs)[0]) => {

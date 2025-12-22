@@ -10,16 +10,31 @@ function getSupabaseUrl(): string {
     return process.env.NEXT_PUBLIC_SUPABASE_URL
   }
 
-  // Extract from POSTGRES_URL format: postgresql://postgres.[project-ref]:[password]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
   const postgresUrl = process.env.POSTGRES_URL || ""
-  const match = postgresUrl.match(/postgres\.([^:]+).*@([^:]+)/)
-
-  if (match) {
+  
+  // Try multiple patterns to extract project reference
+  // Pattern 1: postgresql://postgres.[project-ref]:...
+  let match = postgresUrl.match(/postgres\.([a-zA-Z0-9-]+)/)
+  
+  // Pattern 2: @aws-0-[region].pooler.supabase.com contains project in subdomain
+  if (!match) {
+    match = postgresUrl.match(/\/\/([^:@]+)@/)
+    if (match && match[1].includes('.')) {
+      const parts = match[1].split('.')
+      if (parts.length > 1) {
+        return `https://${parts[1]}.supabase.co`
+      }
+    }
+  }
+  
+  if (match && match[1]) {
     const projectRef = match[1]
+    console.log('[v0] SUPABASE_URL extracted from POSTGRES_URL:', `https://${projectRef}.supabase.co`)
     return `https://${projectRef}.supabase.co`
   }
 
-  throw new Error("Unable to determine Supabase URL. Please set NEXT_PUBLIC_SUPABASE_URL environment variable.")
+  console.warn('[v0] SUPABASE_URL not found. Middleware will skip auth checks.')
+  return ''
 }
 
 function getSupabaseAnonKey(): string {
@@ -35,7 +50,7 @@ export async function updateSession(request: NextRequest) {
   const supabaseAnonKey = getSupabaseAnonKey()
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("[v0] Supabase credentials missing:", {
+    console.warn("[v0] Supabase credentials missing. Skipping auth middleware.", {
       hasUrl: !!supabaseUrl,
       hasKey: !!supabaseAnonKey,
     })

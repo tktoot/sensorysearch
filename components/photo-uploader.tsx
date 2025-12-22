@@ -274,7 +274,6 @@ export function PhotoUploader({
         id="photoInput"
         type="file"
         accept="image/*"
-        capture="environment"
         multiple
         onChange={handleFileSelect}
         className="hidden"
@@ -310,7 +309,7 @@ export function PhotoUploader({
 
       {canAddMore && (
         <p className="text-xs text-muted-foreground text-center">
-          iPhone tip: you can take a photo or pick from your library
+          iPhone users: Tap to choose photos from your library or take a new photo
         </p>
       )}
 

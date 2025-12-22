@@ -4,21 +4,75 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Calendar, Clock, MapPin, Users, Volume2, Sun, Info } from "lucide-react"
-import { mockEvents, filterEventsByAge, filterActiveEvents, type UserProfile } from "@/lib/mock-data"
+import { Calendar, Clock, MapPin, Users, Volume2, Sun, Info } from 'lucide-react'
+import { filterEventsByAge, filterActiveEvents, type UserProfile, type Event } from "@/lib/mock-data"
 import Link from "next/link"
+import { createClient } from "@/lib/supabase/client"
 
 export default function EventsPage() {
   const [userProfile, setUserProfile] = useState<UserProfile>({ agePreference: null })
+  const [events, setEvents] = useState<Event[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const savedProfile = localStorage.getItem("userProfile")
     if (savedProfile) {
       setUserProfile(JSON.parse(savedProfile))
     }
+
+    const fetchApprovedEvents = async () => {
+      try {
+        console.log("[v0] EVENTS_FETCH: Fetching approved events from Supabase...")
+        const supabase = createClient()
+        
+        const { data, error } = await supabase
+          .from("listings")
+          .select("*")
+          .eq("status", "approved")
+          .eq("type", "event")
+          .order("event_date", { ascending: true })
+
+        if (error) {
+          console.error("[v0] EVENTS_FETCH_ERROR:", error)
+          setLoading(false)
+          return
+        }
+
+        console.log("[v0] EVENTS_FETCH_SUCCESS:", data?.length || 0, "events")
+
+        const approvedEvents: Event[] = data.map(item => ({
+          id: item.id,
+          name: item.title,
+          description: item.description,
+          venueName: item.title,
+          city: item.city,
+          date: item.event_date || new Date().toISOString(),
+          time: item.event_start_time || '10:00 AM',
+          capacity: 50,
+          registered: 0,
+          imageUrl: item.images?.[0] || '/placeholder.svg',
+          coordinates: item.coordinates || { lat: 0, lng: 0 },
+          sensoryAttributes: {
+            noiseLevel: item.sensory_features?.includes('lowNoise') ? 'Quiet' : 'Moderate',
+            lighting: item.sensory_features?.includes('gentleLighting') ? 'Soft' : 'Natural',
+            crowdDensity: item.sensory_features?.includes('crowdManaged') ? 'Low' : 'Moderate',
+          },
+          tags: item.sensory_features || [],
+          ageGroups: ['all ages'],
+        }))
+
+        setEvents(approvedEvents)
+      } catch (err) {
+        console.error("[v0] EVENTS_FETCH_FAILED:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchApprovedEvents()
   }, [])
 
-  const activeEvents = filterActiveEvents(mockEvents)
+  const activeEvents = filterActiveEvents(events)
   const filteredEvents = filterEventsByAge(activeEvents, userProfile.agePreference)
 
   return (

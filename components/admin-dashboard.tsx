@@ -59,13 +59,33 @@ export function AdminDashboard() {
       console.log("[v0] ADMIN_FETCH: Starting to fetch listings...")
       const supabase = createClient()
       
-      const { data, error } = await supabase.from("listings").select("*").order("submitted_at", { ascending: false })
+      console.log("[v0] ADMIN_FETCH: Testing Supabase connection...")
+      const { data: testData, error: testError } = await supabase
+        .from("listings")
+        .select("count", { count: 'exact', head: true })
+      
+      if (testError) {
+        console.error("[v0] ADMIN_FETCH: Connection test failed:", testError)
+      } else {
+        console.log("[v0] ADMIN_FETCH: Connection successful, total rows:", testData)
+      }
+      
+      const { data, error } = await supabase
+        .from("listings")
+        .select("*")
+        .order("submitted_at", { ascending: false })
 
-      console.log("[v0] ADMIN_FETCH: Supabase response", {
+      console.log("[v0] ADMIN_FETCH: Query completed", {
         success: !error,
         count: data?.length || 0,
         error: error?.message,
-        data: data?.map(d => ({ id: d.id, title: d.title, status: d.status }))
+        errorDetails: error,
+        sample: data?.[0] ? {
+          id: data[0].id,
+          title: data[0].title,
+          status: data[0].status,
+          type: data[0].type
+        } : null
       })
 
       if (error) {
@@ -291,6 +311,10 @@ export function AdminDashboard() {
               <CardContent className="flex h-48 flex-col items-center justify-center gap-3 p-6">
                 <CheckCircle className="h-12 w-12 text-primary" />
                 <p className="text-center text-muted-foreground">All caught up! No pending submissions to review.</p>
+                <Button onClick={() => fetchListings()} variant="outline" size="sm" className="gap-2">
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh
+                </Button>
               </CardContent>
             </Card>
           ) : (
@@ -380,7 +404,7 @@ export function AdminDashboard() {
                     </div>
                   )}
 
-                  {listing.sensory_features && listing.sensory_features.length > 0 && (
+                  {listing.sensory_features && Array.isArray(listing.sensory_features) && listing.sensory_features.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {listing.sensory_features.map((feature) => (
                         <Badge key={feature} variant="outline" className="text-xs">
@@ -429,30 +453,99 @@ export function AdminDashboard() {
             </Card>
           ) : (
             approvedListings.map((listing) => (
-              <Card key={listing.id} className="border-l-4 border-l-green-500">
-                <CardContent className="p-4">
+              <Card key={listing.id} className="border-l-4 border-l-green-500 cursor-pointer hover:shadow-lg transition-shadow">
+                <CardHeader>
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                    <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold">{listing.title}</h3>
+                        <CardTitle className="text-xl">{listing.title}</CardTitle>
                         <Badge variant="secondary">{listing.type}</Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        {listing.city}, {listing.state}
-                      </p>
-                      {listing.reviewed_at && (
-                        <p className="text-xs text-muted-foreground">
-                          Approved on{" "}
-                          {new Date(listing.reviewed_at).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </p>
-                      )}
+                      <CardDescription className="space-y-1">
+                        <div className="flex items-center gap-1 text-sm">
+                          <MapPin className="h-3 w-3" />
+                          {listing.address}
+                        </div>
+                        <div className="flex items-center gap-1 text-sm">
+                          {listing.city}, {listing.state} {listing.zip}
+                        </div>
+                        {listing.organizer_email && (
+                          <div className="flex items-center gap-1 text-sm">
+                            <Mail className="h-3 w-3" />
+                            {listing.organizer_email}
+                          </div>
+                        )}
+                      </CardDescription>
                     </div>
                     <CheckCircle className="h-5 w-5 text-green-500" />
                   </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {listing.images && listing.images.length > 0 && (
+                    <div className="relative aspect-video overflow-hidden rounded-lg">
+                      <img
+                        src={listing.images[0] || "/placeholder.svg"}
+                        alt={listing.title}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  )}
+
+                  <p className="text-sm text-muted-foreground">{listing.description}</p>
+
+                  {listing.event_date && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span>
+                        {new Date(listing.event_date).toLocaleDateString("en-US", {
+                          month: "long",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                      {listing.event_start_time && (
+                        <>
+                          <Clock className="h-4 w-4 text-muted-foreground ml-2" />
+                          <span>{listing.event_start_time}</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {listing.website && (
+                    <a
+                      href={listing.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-sm text-primary hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      {listing.website}
+                    </a>
+                  )}
+
+                  {listing.sensory_features && Array.isArray(listing.sensory_features) && listing.sensory_features.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {listing.sensory_features.map((feature) => (
+                        <Badge key={feature} variant="outline" className="text-xs">
+                          {feature.replace(/([A-Z])/g, " $1").trim()}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
+                  {listing.reviewed_at && (
+                    <p className="text-xs text-muted-foreground">
+                      Approved on{" "}
+                      {new Date(listing.reviewed_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             ))

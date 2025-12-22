@@ -7,14 +7,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Heart, Calendar, MapPin, Briefcase, ArrowRight, Star, Music, Building, Palette, Shield, LogOut } from 'lucide-react'
+import {
+  Heart,
+  Calendar,
+  MapPin,
+  Briefcase,
+  ArrowRight,
+  Star,
+  Music,
+  Building,
+  Palette,
+  Shield,
+  LogOut,
+} from "lucide-react"
 import { mockVenues, mockEvents, type UserProfile, type Event } from "@/lib/mock-data"
 import { ProfileOnboarding } from "@/components/profile-onboarding"
 import { ProfileBanner } from "@/components/profile-banner"
 import { ProfileDetailsDrawer } from "@/components/profile-details-drawer"
 import { ProfileErrorBoundary } from "@/components/profile-error-boundary"
 import Link from "next/link"
-import { useRouter } from 'next/navigation'
+import { useRouter } from "next/navigation"
 import { getUserFavorites } from "@/lib/user-utils"
 import { BILLING_ENABLED } from "@/lib/config"
 import { createClient } from "@/lib/supabase/client"
@@ -315,7 +327,7 @@ function ProfilePageContent() {
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5 shrink-0 border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-red-900/30 dark:hover:bg-red-950/20"
+              className="gap-1.5 shrink-0 border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-red-900/30 dark:hover:bg-red-950/20 bg-transparent"
               onClick={handleSignOut}
             >
               <LogOut className="h-4 w-4" />
@@ -323,7 +335,6 @@ function ProfilePageContent() {
             </Button>
           )}
         </div>
-        {/* </CHANGE> */}
 
         <div className="mb-6">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your Activity</h2>
@@ -346,9 +357,9 @@ function ProfilePageContent() {
             </Link>
 
             <Link href="/events">
-              <Card className="group h-full cursor-pointer rounded-lg border border-orange-200/50 bg-gradient-to-br from-orange-50/80 to-orange-100/30 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md dark:border-orange-900/30 dark:from-orange-950/20 dark:to-orange-950/10">
+              <Card className="group h-full cursor-pointer rounded-lg border border-purple-200/50 bg-gradient-to-br from-purple-50/80 to-purple-100/30 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md dark:border-purple-900/30 dark:from-purple-950/20 dark:to-purple-950/10">
                 <CardContent className="flex items-center gap-3 p-2">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500 shadow-sm">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-500 shadow-sm">
                     <Calendar className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
