@@ -41,7 +41,7 @@ export default function UpgradeOrganizerPage() {
     try {
       console.log("[v0] Upgrading user to organizer", organizerInfo)
 
-      const success = await upgradeToOrganizer()
+      const success = await upgradeToOrganizer(organizerInfo.business_name, organizerInfo.business_contact_email)
 
       if (!success) {
         throw new Error("Failed to upgrade to organizer")
@@ -56,9 +56,9 @@ export default function UpgradeOrganizerPage() {
       })
 
       window.location.href = nextPath
-    } catch (err) {
+    } catch (err: any) {
       console.error("[v0] UPGRADE_ERROR - Failed to complete upgrade", err)
-      setError("An unexpected error occurred. Please try again.")
+      setError(err?.message || "An unexpected error occurred. Please try again.")
     } finally {
       setLoading(false)
     }

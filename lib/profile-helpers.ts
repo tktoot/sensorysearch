@@ -224,13 +224,19 @@ export async function checkOrganizerRole(): Promise<boolean> {
 /**
  * Upgrade user to organizer role via API
  */
-export async function upgradeToOrganizer(): Promise<boolean> {
+export async function upgradeToOrganizer(businessName?: string, contactEmail?: string): Promise<boolean> {
   try {
+    console.log("[v0] Calling upgrade API with business details", { businessName, contactEmail })
+
     const response = await fetch("/api/upgrade-organizer", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        business_name: businessName || "",
+        contact_email: contactEmail || "",
+      }),
     })
 
     if (!response.ok) {
