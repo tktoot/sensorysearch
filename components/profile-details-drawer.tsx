@@ -3,25 +3,36 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { UserCircle, Mail, Phone, Edit, Building2 } from "lucide-react"
-import type { UserProfile } from "@/lib/mock-data"
+import { UserCircle, Mail } from "lucide-react"
+import type { Profile } from "@/lib/profile-helpers"
 
 interface ProfileDetailsDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  profile: UserProfile
-  onEdit: () => void
+  profile: Profile | null
+  onProfileUpdate?: (profile: Profile) => void
 }
 
-const ageOptions = [
-  { value: "toddlers", label: "Toddlers", description: "0-5 years", emoji: "👶" },
-  { value: "children", label: "Children", description: "6-12 years", emoji: "🧒" },
-  { value: "teens", label: "Teens", description: "13-17 years", emoji: "👦" },
-  { value: "adults", label: "Adults", description: "18+ years", emoji: "👤" },
-] as const
+export default function ProfileDetailsDrawer({ open, onOpenChange, profile }: ProfileDetailsDrawerProps) {
+  if (!profile) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <UserCircle className="h-5 w-5" />
+              My Profile
+            </SheetTitle>
+            <SheetDescription>Your account information and preferences</SheetDescription>
+          </SheetHeader>
 
-export function ProfileDetailsDrawer({ open, onOpenChange, profile, onEdit }: ProfileDetailsDrawerProps) {
-  const selectedAge = ageOptions.find((opt) => opt.value === profile.agePreference)
+          <div className="mt-6 space-y-6">
+            <p className="text-sm text-muted-foreground">No profile data available</p>
+          </div>
+        </SheetContent>
+      </Sheet>
+    )
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -43,8 +54,8 @@ export function ProfileDetailsDrawer({ open, onOpenChange, profile, onEdit }: Pr
               <div className="flex items-start gap-3">
                 <UserCircle className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">Name</p>
-                  <p className="font-medium">{profile.name || "Not set"}</p>
+                  <p className="text-sm text-muted-foreground">User ID</p>
+                  <p className="font-medium text-xs break-all">{profile.id}</p>
                 </div>
               </div>
 
@@ -55,73 +66,51 @@ export function ProfileDetailsDrawer({ open, onOpenChange, profile, onEdit }: Pr
                   <p className="font-medium break-all">{profile.email || "Not set"}</p>
                 </div>
               </div>
-
-              {profile.phone_number && (
-                <div className="flex items-start gap-3">
-                  <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">Phone</p>
-                    <p className="font-medium">{profile.phone_number}</p>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Age Preference */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Age Preference</h3>
+          {/* Preferences */}
+          {(profile.home_zip || profile.age_focus || profile.radius_miles) && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Preferences</h3>
 
-            {selectedAge ? (
-              <div className="flex items-center gap-3 rounded-lg border-2 border-primary bg-primary/5 p-3">
-                <span className="text-2xl">{selectedAge.emoji}</span>
-                <div className="flex-1">
-                  <div className="font-medium">{selectedAge.label}</div>
-                  <div className="text-sm text-muted-foreground">{selectedAge.description}</div>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No age preference set</p>
-            )}
-          </div>
-
-          {/* Account Type */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Account Type</h3>
-
-            <div className="flex items-center gap-2">
-              {profile.role === "business" ? (
-                <Badge variant="default" className="gap-1">
-                  <Building2 className="h-3 w-3" />
-                  Organizer Account
-                </Badge>
-              ) : profile.role === "admin" ? (
-                <Badge variant="secondary">Admin Account</Badge>
-              ) : (
-                <Badge variant="outline">Personal Account</Badge>
-              )}
-            </div>
-
-            {profile.role === "business" && profile.business_name && (
               <div className="space-y-2 rounded-lg bg-muted/50 p-3">
-                <div>
-                  <p className="text-sm text-muted-foreground">Business Name</p>
-                  <p className="font-medium">{profile.business_name}</p>
-                </div>
-                {profile.business_website && (
+                {profile.home_zip && (
                   <div>
-                    <p className="text-sm text-muted-foreground">Website</p>
-                    <p className="font-medium text-sm break-all">{profile.business_website}</p>
+                    <p className="text-sm text-muted-foreground">Home ZIP</p>
+                    <p className="font-medium">{profile.home_zip}</p>
+                  </div>
+                )}
+                {profile.age_focus && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Age Focus</p>
+                    <p className="font-medium">{profile.age_focus}</p>
+                  </div>
+                )}
+                {profile.radius_miles && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Search Radius</p>
+                    <p className="font-medium">{profile.radius_miles} miles</p>
                   </div>
                 )}
               </div>
-            )}
+            </div>
+          )}
+
+          {/* Onboarding Status */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Status</h3>
+
+            <div className="flex items-center gap-2">
+              <Badge variant={profile.has_seen_onboarding ? "default" : "secondary"}>
+                {profile.has_seen_onboarding ? "Onboarding Complete" : "Onboarding Pending"}
+              </Badge>
+            </div>
           </div>
 
-          {/* Edit Button */}
-          <Button onClick={onEdit} className="w-full gap-2">
-            <Edit className="h-4 w-4" />
-            Edit Profile
+          {/* Close Button */}
+          <Button onClick={() => onOpenChange(false)} className="w-full gap-2">
+            Close
           </Button>
         </div>
       </SheetContent>

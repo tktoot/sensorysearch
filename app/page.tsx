@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { ensureProfile } from "@/lib/profile-helpers"
 import { Button } from "@/components/ui/button"
 
 export default function HomePage() {
@@ -34,13 +35,9 @@ export default function HomePage() {
       } = await supabase.auth.getSession()
 
       if (session) {
-        console.log("[v0] HomePage: Session found, checking onboarding")
+        console.log("[v0] HomePage: Session found, ensuring profile exists")
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("has_seen_onboarding")
-          .eq("id", session.user.id)
-          .single()
+        const profile = await ensureProfile(session.user.id, session.user.email || null)
 
         if (profile?.has_seen_onboarding) {
           console.log("[v0] User has completed onboarding, going to discover")

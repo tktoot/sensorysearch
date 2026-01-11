@@ -20,7 +20,8 @@ export async function GET(request: Request) {
     } = await supabase.auth.getUser()
 
     if (user) {
-      // Check if profile exists
+      console.log("[v0] Auth callback: User authenticated, ensuring profile exists")
+
       const { data: profile } = await supabase
         .from("profiles")
         .select("id, has_seen_onboarding")
@@ -28,7 +29,8 @@ export async function GET(request: Request) {
         .single()
 
       if (!profile) {
-        // Create profile for OAuth user and mark onboarding complete
+        // Create profile for new user and mark onboarding complete
+        console.log("[v0] Auth callback: Creating profile for new user")
         await supabase.from("profiles").insert({
           id: user.id,
           email: user.email,
@@ -38,6 +40,7 @@ export async function GET(request: Request) {
         })
       } else if (!profile.has_seen_onboarding) {
         // Update existing profile to mark onboarding complete for OAuth
+        console.log("[v0] Auth callback: Marking onboarding complete for existing user")
         await supabase
           .from("profiles")
           .update({

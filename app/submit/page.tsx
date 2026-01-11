@@ -8,20 +8,41 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default async function SubmitPage() {
   const supabase = await createClient()
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    console.log("[v0] Submit page: No user, redirecting to intro")
+    console.log("[v0] Submit page: No auth session, redirecting to intro")
     redirect("/intro?next=/submit")
   }
 
+  console.log("[v0] Submit page: User authenticated:", user.id)
+
+  const { data: profile } = await supabase.from("profiles").select("id").eq("id", user.id).single()
+
+  if (!profile) {
+    console.log("[v0] Submit page: Creating missing profile for user:", user.id)
+    await supabase
+      .from("profiles")
+      .insert({
+        id: user.id,
+        email: user.email,
+        has_seen_onboarding: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+  }
+
+  // Check organizer status from users table
+  let isOrganizer = false
   const { data: userData } = await supabase.from("users").select("role").eq("id", user.id).single()
+  isOrganizer = userData?.role === "organizer" || userData?.role === "admin"
 
-  console.log("[v0] Submit page: User role:", userData?.role)
-
-  const isOrganizer = userData?.role === "organizer" || userData?.role === "admin"
+  console.log("[v0] Submit page: User role:", userData?.role, "isOrganizer:", isOrganizer)
 
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8">

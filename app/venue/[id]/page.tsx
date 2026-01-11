@@ -61,15 +61,15 @@ export default function VenueDetailPage() {
           city: venueData.city,
           address: venueData.address,
           rating: 4.5,
-          imageUrl: venueData.images?.[0] || venueData.hero_image_url || "/elegant-wedding-venue.png",
+          imageUrl: venueData.hero_image_url || venueData.photo_urls?.[0] || "/elegant-wedding-venue.png",
           coordinates:
             venueData.latitude && venueData.longitude
               ? { lat: Number.parseFloat(venueData.latitude), lng: Number.parseFloat(venueData.longitude) }
               : null,
           sensoryAttributes: {
-            noiseLevel: venueData.noise_level || "Moderate",
-            lighting: venueData.lighting || "Natural",
-            crowdDensity: venueData.crowd_level || "Moderate",
+            noiseLevel: venueData.noise_level || "moderate",
+            lighting: venueData.lighting_level || "natural",
+            crowdDensity: venueData.crowd_level || "moderate",
             hasQuietSpace: venueData.quiet_space_available || false,
             wheelchairAccessible: venueData.wheelchair_accessible || false,
             sensoryFriendlyHours: venueData.sensory_friendly_hours_available || false,
