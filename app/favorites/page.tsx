@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,12 +11,14 @@ import Link from "next/link"
 import { createBrowserClient } from "@/lib/supabase-browser-client"
 
 export default function FavoritesPage() {
+  const router = useRouter()
   const [favoriteEvents, setFavoriteEvents] = useState<any[]>([])
   const [favoriteVenues, setFavoriteVenues] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
 
   useEffect(() => {
-    async function fetchFavorites() {
+    async function checkAuthAndFetchFavorites() {
       try {
         const supabase = createBrowserClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,61 +29,67 @@ export default function FavoritesPage() {
           data: { user },
         } = await supabase.auth.getUser()
 
-        if (user) {
-          const { data: favoritesData } = await supabase
-            .from("favorites")
-            .select("listing_id, listing_type")
-            .eq("user_id", user.id)
+        if (!user) {
+          console.log("[v0] Favorites: No auth session, redirecting to intro")
+          router.push("/intro?next=/favorites")
+          return
+        }
 
-          if (favoritesData) {
-            const eventIds = favoritesData.filter((f) => f.listing_type === "event").map((f) => f.listing_id)
-            const venueIds = favoritesData.filter((f) => f.listing_type === "venue").map((f) => f.listing_id)
+        setIsCheckingAuth(false)
 
-            if (eventIds.length > 0) {
-              const { data: eventsData } = await supabase.from("events").select("*").in("id", eventIds)
+        const { data: favoritesData } = await supabase
+          .from("favorites")
+          .select("listing_id, listing_type")
+          .eq("user_id", user.id)
 
-              if (eventsData) {
-                setFavoriteEvents(
-                  eventsData.map((e: any) => ({
-                    id: e.id,
-                    name: e.name,
-                    description: e.description,
-                    venueName: e.venue_name || e.address,
-                    date: e.event_date,
-                    time: e.event_start_time || "TBD",
-                    imageUrl: e.images?.[0] || e.hero_image_url || "/placeholder.svg",
-                    capacity: e.capacity || 50,
-                    registered: 0,
-                    sensoryAttributes: {
-                      noiseLevel: e.noise_level || "Quiet",
-                      lighting: e.lighting || "Soft",
-                    },
-                    tags: e.sensory_features || [],
-                  })),
-                )
-              }
+        if (favoritesData) {
+          const eventIds = favoritesData.filter((f) => f.listing_type === "event").map((f) => f.listing_id)
+          const venueIds = favoritesData.filter((f) => f.listing_type === "venue").map((f) => f.listing_id)
+
+          if (eventIds.length > 0) {
+            const { data: eventsData } = await supabase.from("events").select("*").in("id", eventIds)
+
+            if (eventsData) {
+              setFavoriteEvents(
+                eventsData.map((e: any) => ({
+                  id: e.id,
+                  name: e.name,
+                  description: e.description,
+                  venueName: e.venue_name || e.address,
+                  date: e.event_date,
+                  time: e.event_start_time || "TBD",
+                  imageUrl: e.images?.[0] || e.hero_image_url || "/placeholder.svg",
+                  capacity: e.capacity || 50,
+                  registered: 0,
+                  sensoryAttributes: {
+                    noiseLevel: e.noise_level || "Quiet",
+                    lighting: e.lighting || "Soft",
+                  },
+                  tags: e.sensory_features || [],
+                })),
+              )
             }
+          }
 
-            if (venueIds.length > 0) {
-              const { data: venuesData } = await supabase.from("venues").select("*").in("id", venueIds)
+          if (venueIds.length > 0) {
+            const { data: venuesData } = await supabase.from("venues").select("*").in("id", venueIds)
 
-              if (venuesData) {
-                setFavoriteVenues(
-                  venuesData.map((v: any) => ({
-                    id: v.id,
-                    name: v.name,
-                    description: v.description,
-                    city: v.city,
-                    address: v.address,
-                    imageUrl: v.images?.[0] || v.hero_image_url || "/placeholder.svg",
-                    sensoryAttributes: {
-                      noiseLevel: v.noise_level || "Quiet",
-                      lighting: v.lighting || "Natural",
-                    },
-                    tags: v.sensory_features || [],
-                  })),
-                )
-              }
+            if (venuesData) {
+              setFavoriteVenues(
+                venuesData.map((v: any) => ({
+                  id: v.id,
+                  name: v.name,
+                  description: v.description,
+                  city: v.city,
+                  address: v.address,
+                  imageUrl: v.images?.[0] || v.hero_image_url || "/placeholder.svg",
+                  sensoryAttributes: {
+                    noiseLevel: v.noise_level || "Quiet",
+                    lighting: v.lighting || "Natural",
+                  },
+                  tags: v.sensory_features || [],
+                })),
+              )
             }
           }
         }
@@ -91,8 +100,19 @@ export default function FavoritesPage() {
       }
     }
 
-    fetchFavorites()
-  }, [])
+    checkAuthAndFetchFavorites()
+  }, [router])
+
+  if (isCheckingAuth) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (

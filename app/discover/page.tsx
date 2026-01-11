@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -93,6 +94,8 @@ function filterActiveEvents(events: Event[]): Event[] {
 }
 
 export default function DiscoverPage() {
+  const router = useRouter()
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [userProfile, setUserProfile] = useState<UserProfile>({ agePreference: null })
   const [locationPreferences, setLocationPreferences] = useState<LocationPreferences>({
@@ -109,200 +112,213 @@ export default function DiscoverPage() {
   const [showSearchOverlay, setShowSearchOverlay] = useState(false)
 
   useEffect(() => {
-    const savedProfile = localStorage.getItem("userProfile")
-    if (savedProfile) {
-      setUserProfile(JSON.parse(savedProfile))
-    }
+    const checkAuth = async () => {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      )
 
-    async function fetchData() {
-      try {
-        setLoading(true)
-        setError(null)
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
 
-        const supabase = createBrowserClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        )
-
-        const [venuesResult, eventsResult, worshipResult, parksResult, playgroundsResult] = await Promise.all([
-          supabase.from("venues").select("*").order("created_at", { ascending: false }),
-          supabase
-            .from("events")
-            .select("*")
-            .gte("event_date", new Date().toISOString().split("T")[0])
-            .order("event_date", { ascending: true }),
-          supabase.from("places_of_worship").select("*").order("created_at", { ascending: false }),
-          supabase.from("parks").select("*").order("created_at", { ascending: false }),
-          supabase.from("playgrounds").select("*").order("created_at", { ascending: false }),
-        ])
-
-        if (venuesResult.data) {
-          const mappedVenues = venuesResult.data.map((v: any) => ({
-            id: v.id,
-            name: v.name,
-            description: v.description,
-            category: v.category || "Other",
-            city: v.city,
-            address: v.address,
-            rating: 4.5,
-            imageUrl: v.images?.[0] || v.hero_image_url || "/elegant-wedding-venue.png",
-            coordinates:
-              v.latitude && v.longitude
-                ? { lat: Number.parseFloat(v.latitude), lng: Number.parseFloat(v.longitude) }
-                : null,
-            sensoryAttributes: {
-              noiseLevel: v.noise_level || "Moderate",
-              lighting: v.lighting || "Natural",
-              crowdDensity: v.crowd_level || "Moderate",
-              hasQuietSpace: v.quiet_space_available || false,
-              wheelchairAccessible: v.wheelchair_accessible || false,
-              sensoryFriendlyHours: v.sensory_friendly_hours_available || false,
-            },
-            tags: v.sensory_features || [],
-            listingType: "business",
-          }))
-          setVenues(mappedVenues)
-          console.log("[v0] Loaded venues from database:", mappedVenues.length)
-        }
-
-        if (eventsResult.data) {
-          const mappedEvents = eventsResult.data.map((e: any) => ({
-            id: e.id,
-            name: e.name,
-            description: e.description,
-            venueName: e.venue_name || e.address,
-            venueId: e.venue_id || null,
-            city: e.city,
-            date: e.event_date,
-            time: e.event_start_time || "TBD",
-            imageUrl: e.images?.[0] || e.hero_image_url || "/community-event.png",
-            capacity: e.capacity || 50,
-            registered: 0,
-            ageRange: { min: 0, max: 99 },
-            coordinates:
-              e.latitude && e.longitude
-                ? { lat: Number.parseFloat(e.latitude), lng: Number.parseFloat(e.longitude) }
-                : null,
-            sensoryAttributes: {
-              noiseLevel: e.noise_level || "Quiet",
-              lighting: e.lighting || "Soft",
-              crowdDensity: e.crowd_level || "Low",
-              hasQuietSpace: e.quiet_space_available || false,
-              wheelchairAccessible: e.wheelchair_accessible || false,
-            },
-            tags: e.sensory_features || [],
-            businessEmail: e.email,
-          }))
-          setEvents(mappedEvents)
-          console.log("[v0] Loaded events from database:", mappedEvents.length)
-        }
-
-        if (worshipResult.data) {
-          const mappedWorship = worshipResult.data.map((w: any) => ({
-            id: w.id,
-            name: w.name,
-            description: w.description,
-            category: w.denomination || "Place of Worship",
-            city: w.city,
-            address: w.address,
-            rating: 4.8,
-            imageUrl: w.images?.[0] || "/act-of-worship.png",
-            coordinates:
-              w.latitude && w.longitude
-                ? { lat: Number.parseFloat(w.latitude), lng: Number.parseFloat(w.longitude) }
-                : null,
-            sensoryAttributes: {
-              noiseLevel: w.noise_level || "Quiet",
-              lighting: w.lighting || "Soft",
-              crowdDensity: w.crowd_level || "Moderate",
-              hasQuietSpace: w.quiet_space_available || false,
-              wheelchairAccessible: w.wheelchair_accessible || false,
-              sensoryFriendlyHours: w.sensory_friendly_hours_available || false,
-            },
-            tags: w.sensory_features || [],
-            listingType: "worship",
-          }))
-          setPlacesOfWorship(mappedWorship)
-          console.log("[v0] Loaded places of worship from database:", mappedWorship.length)
-        }
-
-        const allParks = []
-        if (parksResult.data) {
-          allParks.push(
-            ...parksResult.data.map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              description: p.description,
-              category: "Park",
-              city: p.city,
-              address: p.address,
-              rating: 4.7,
-              imageUrl: p.images?.[0] || "/sensory-friendly-park.jpg",
-              coordinates:
-                p.latitude && p.longitude
-                  ? { lat: Number.parseFloat(p.latitude), lng: Number.parseFloat(p.longitude) }
-                  : null,
-              sensoryAttributes: {
-                noiseLevel: p.noise_level || "Moderate",
-                lighting: "Natural",
-                crowdDensity: p.crowd_level || "Low",
-                hasQuietSpace: true,
-                wheelchairAccessible: p.wheelchair_accessible || false,
-                sensoryFriendlyHours: false,
-              },
-              tags: p.sensory_features || [],
-              listingType: "park",
-            })),
-          )
-        }
-        if (playgroundsResult.data) {
-          allParks.push(
-            ...playgroundsResult.data.map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              description: p.description,
-              category: "Playground",
-              city: p.city,
-              address: p.address,
-              rating: 4.6,
-              imageUrl: p.images?.[0] || "/sensory-friendly-playground.jpg",
-              coordinates:
-                p.latitude && p.longitude
-                  ? { lat: Number.parseFloat(p.latitude), lng: Number.parseFloat(p.longitude) }
-                  : null,
-              sensoryAttributes: {
-                noiseLevel: p.noise_level || "Moderate",
-                lighting: "Natural",
-                crowdDensity: p.crowd_level || "Low",
-                hasQuietSpace: false,
-                wheelchairAccessible: p.wheelchair_accessible || false,
-                sensoryFriendlyHours: false,
-              },
-              tags: p.sensory_features || [],
-              listingType: "playground",
-            })),
-          )
-        }
-        setParks(allParks)
-        console.log("[v0] Loaded parks and playgrounds from database:", allParks.length)
-      } catch (error) {
-        console.error("[v0] Error fetching data:", error)
-        setError("Failed to load listings. Please refresh the page.")
-      } finally {
-        setLoading(false)
+      if (!session) {
+        console.log("[v0] Discover: No auth session, redirecting to intro")
+        router.push("/intro?next=/discover")
+        return
       }
+
+      console.log("[v0] Discover: User authenticated, loading content")
+      setIsCheckingAuth(false)
     }
 
-    fetchData()
+    checkAuth()
+  }, [router])
 
-    const params = new URLSearchParams(window.location.search)
-    const q = params.get("q")
-
-    if (q) {
-      setSearchQuery(q)
-      setShowSearchOverlay(true)
+  useEffect(() => {
+    if (!isCheckingAuth) {
+      loadData()
     }
-  }, [])
+  }, [isCheckingAuth])
+
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      )
+
+      const [venuesResult, eventsResult, worshipResult, parksResult, playgroundsResult] = await Promise.all([
+        supabase.from("venues").select("*").order("created_at", { ascending: false }),
+        supabase
+          .from("events")
+          .select("*")
+          .gte("event_date", new Date().toISOString().split("T")[0])
+          .order("event_date", { ascending: true }),
+        supabase.from("places_of_worship").select("*").order("created_at", { ascending: false }),
+        supabase.from("parks").select("*").order("created_at", { ascending: false }),
+        supabase.from("playgrounds").select("*").order("created_at", { ascending: false }),
+      ])
+
+      if (venuesResult.data) {
+        const mappedVenues = venuesResult.data.map((v: any) => ({
+          id: v.id,
+          name: v.name,
+          description: v.description,
+          category: v.category || "Other",
+          city: v.city,
+          address: v.address,
+          rating: 4.5,
+          imageUrl: v.images?.[0] || v.hero_image_url || "/elegant-wedding-venue.png",
+          coordinates:
+            v.latitude && v.longitude
+              ? { lat: Number.parseFloat(v.latitude), lng: Number.parseFloat(v.longitude) }
+              : null,
+          sensoryAttributes: {
+            noiseLevel: v.noise_level || "Moderate",
+            lighting: v.lighting || "Natural",
+            crowdDensity: v.crowd_level || "Moderate",
+            hasQuietSpace: v.quiet_space_available || false,
+            wheelchairAccessible: v.wheelchair_accessible || false,
+            sensoryFriendlyHours: v.sensory_friendly_hours_available || false,
+          },
+          tags: v.sensory_features || [],
+          listingType: "business",
+        }))
+        setVenues(mappedVenues)
+        console.log("[v0] Loaded venues from database:", mappedVenues.length)
+      }
+
+      if (eventsResult.data) {
+        const mappedEvents = eventsResult.data.map((e: any) => ({
+          id: e.id,
+          name: e.name,
+          description: e.description,
+          venueName: e.venue_name || e.address,
+          venueId: e.venue_id || null,
+          city: e.city,
+          date: e.event_date,
+          time: e.event_start_time || "TBD",
+          imageUrl: e.images?.[0] || e.hero_image_url || "/community-event.png",
+          capacity: e.capacity || 50,
+          registered: 0,
+          ageRange: { min: 0, max: 99 },
+          coordinates:
+            e.latitude && e.longitude
+              ? { lat: Number.parseFloat(e.latitude), lng: Number.parseFloat(e.longitude) }
+              : null,
+          sensoryAttributes: {
+            noiseLevel: e.noise_level || "Quiet",
+            lighting: e.lighting || "Soft",
+            crowdDensity: e.crowd_level || "Low",
+            hasQuietSpace: e.quiet_space_available || false,
+            wheelchairAccessible: e.wheelchair_accessible || false,
+          },
+          tags: e.sensory_features || [],
+          businessEmail: e.email,
+        }))
+        setEvents(mappedEvents)
+        console.log("[v0] Loaded events from database:", mappedEvents.length)
+      }
+
+      if (worshipResult.data) {
+        const mappedWorship = worshipResult.data.map((w: any) => ({
+          id: w.id,
+          name: w.name,
+          description: w.description,
+          category: w.denomination || "Place of Worship",
+          city: w.city,
+          address: w.address,
+          rating: 4.8,
+          imageUrl: w.images?.[0] || "/act-of-worship.png",
+          coordinates:
+            w.latitude && w.longitude
+              ? { lat: Number.parseFloat(w.latitude), lng: Number.parseFloat(w.longitude) }
+              : null,
+          sensoryAttributes: {
+            noiseLevel: w.noise_level || "Quiet",
+            lighting: w.lighting || "Soft",
+            crowdDensity: w.crowd_level || "Moderate",
+            hasQuietSpace: w.quiet_space_available || false,
+            wheelchairAccessible: w.wheelchair_accessible || false,
+            sensoryFriendlyHours: w.sensory_friendly_hours_available || false,
+          },
+          tags: w.sensory_features || [],
+          listingType: "worship",
+        }))
+        setPlacesOfWorship(mappedWorship)
+        console.log("[v0] Loaded places of worship from database:", mappedWorship.length)
+      }
+
+      const allParks = []
+      if (parksResult.data) {
+        allParks.push(
+          ...parksResult.data.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            category: "Park",
+            city: p.city,
+            address: p.address,
+            rating: 4.7,
+            imageUrl: p.images?.[0] || "/sensory-friendly-park.jpg",
+            coordinates:
+              p.latitude && p.longitude
+                ? { lat: Number.parseFloat(p.latitude), lng: Number.parseFloat(p.longitude) }
+                : null,
+            sensoryAttributes: {
+              noiseLevel: p.noise_level || "Moderate",
+              lighting: "Natural",
+              crowdDensity: p.crowd_level || "Low",
+              hasQuietSpace: true,
+              wheelchairAccessible: p.wheelchair_accessible || false,
+              sensoryFriendlyHours: false,
+            },
+            tags: p.sensory_features || [],
+            listingType: "park",
+          })),
+        )
+      }
+      if (playgroundsResult.data) {
+        allParks.push(
+          ...playgroundsResult.data.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            category: "Playground",
+            city: p.city,
+            address: p.address,
+            rating: 4.6,
+            imageUrl: p.images?.[0] || "/sensory-friendly-playground.jpg",
+            coordinates:
+              p.latitude && p.longitude
+                ? { lat: Number.parseFloat(p.latitude), lng: Number.parseFloat(p.longitude) }
+                : null,
+            sensoryAttributes: {
+              noiseLevel: p.noise_level || "Moderate",
+              lighting: "Natural",
+              crowdDensity: p.crowd_level || "Low",
+              hasQuietSpace: false,
+              wheelchairAccessible: p.wheelchair_accessible || false,
+              sensoryFriendlyHours: false,
+            },
+            tags: p.sensory_features || [],
+            listingType: "playground",
+          })),
+        )
+      }
+      setParks(allParks)
+      console.log("[v0] Loaded parks and playgrounds from database:", allParks.length)
+    } catch (error) {
+      console.error("[v0] Error fetching data:", error)
+      setError("Failed to load listings. Please refresh the page.")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   let filteredVenues = venues.filter(
     (venue) =>
@@ -406,6 +422,17 @@ export default function DiscoverPage() {
     })),
   ]
 
+  if (isCheckingAuth) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -436,7 +463,7 @@ export default function DiscoverPage() {
   }
 
   return (
-    <>
+    <div className="relative flex min-h-screen flex-col pb-20">
       <EmailCaptureBanner />
 
       <div className="container mx-auto px-4 py-8">
@@ -854,6 +881,6 @@ export default function DiscoverPage() {
           </TabsContent>
         </Tabs>
       </div>
-    </>
+    </div>
   )
 }

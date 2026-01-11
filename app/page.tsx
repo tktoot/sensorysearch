@@ -47,12 +47,12 @@ export default function HomePage() {
           router.push("/intro")
         }
       } else {
-        console.log("[v0] No session, showing intro")
+        console.log("[v0] No session, redirecting to intro for authentication")
         router.push("/intro")
       }
     } catch (err) {
       console.error("[v0] HomePage: Error during check:", err)
-      router.push("/discover")
+      router.push("/intro")
     } finally {
       setIsChecking(false)
     }
