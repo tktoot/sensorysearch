@@ -9,13 +9,13 @@ export interface Profile {
   id: string
   email: string
   has_seen_onboarding: boolean
-  is_organizer: boolean
   created_at?: string
   updated_at?: string
 }
 
 /**
  * CLIENT-SIDE: Get current user's profile
+ * SAFE: Will not throw error if profile doesn't exist
  */
 export async function getProfile(): Promise<Profile | null> {
   const supabase = createClient()
@@ -25,13 +25,19 @@ export async function getProfile(): Promise<Profile | null> {
   } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+  const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle()
+
+  if (error) {
+    console.error("[v0] Failed to fetch profile:", error)
+    return null
+  }
 
   return profile
 }
 
 /**
  * SERVER-SIDE: Get current user's profile
+ * SAFE: Will not throw error if profile doesn't exist
  */
 export async function getServerProfile(): Promise<Profile | null> {
   const supabase = await createServerClient()
@@ -41,7 +47,12 @@ export async function getServerProfile(): Promise<Profile | null> {
   } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+  const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle()
+
+  if (error) {
+    console.error("[v0] Failed to fetch server profile:", error)
+    return null
+  }
 
   return profile
 }
@@ -57,7 +68,7 @@ export async function ensureProfile(): Promise<Profile | null> {
   } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data: existing } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+  const { data: existing } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle()
 
   if (existing) return existing
 
@@ -67,10 +78,9 @@ export async function ensureProfile(): Promise<Profile | null> {
       id: user.id,
       email: user.email!,
       has_seen_onboarding: false,
-      is_organizer: false,
     })
     .select()
-    .single()
+    .maybeSingle()
 
   return newProfile
 }
@@ -109,16 +119,9 @@ export async function resetOnboarding(): Promise<boolean> {
 
 /**
  * Check if user is an organizer
+ * Checks users.role field, NOT profiles table
  */
 export async function isOrganizer(): Promise<boolean> {
-  const profile = await getProfile()
-  return profile?.is_organizer ?? false
-}
-
-/**
- * Upgrade user to organizer role
- */
-export async function upgradeToOrganizer(): Promise<boolean> {
   const supabase = createClient()
 
   const {
@@ -126,22 +129,16 @@ export async function upgradeToOrganizer(): Promise<boolean> {
   } = await supabase.auth.getUser()
   if (!user) return false
 
-  // Update users table role (will trigger sync to profiles.is_organizer)
-  const { error: userError } = await supabase.from("users").update({ role: "organizer" }).eq("id", user.id)
+  const { data } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle()
 
-  if (userError) {
-    console.error("[v0] Failed to update user role:", userError)
-    return false
-  }
+  return data?.role === "organizer" || data?.role === "admin"
+}
 
-  // Also directly update profile to ensure sync
-  const { error: profileError } = await supabase.from("profiles").update({ is_organizer: true }).eq("id", user.id)
-
-  if (profileError) {
-    console.error("[v0] Failed to update profile:", profileError)
-    return false
-  }
-
-  console.log("[v0] User upgraded to organizer")
-  return true
+/**
+ * Upgrade user to organizer role - DEPRECATED
+ * Use the API route /api/upgrade-organizer instead
+ */
+export async function upgradeToOrganizer(): Promise<boolean> {
+  console.warn("[v0] upgradeToOrganizer is deprecated, use /api/upgrade-organizer API instead")
+  return false
 }

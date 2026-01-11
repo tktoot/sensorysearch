@@ -35,12 +35,14 @@ export function IntroModal() {
     } = await supabase.auth.getSession()
 
     if (session) {
-      // User is authenticated, check profile
       const profile = await getProfile()
 
+      // Only redirect if profile exists AND hasn't seen onboarding
       if (profile && !profile.has_seen_onboarding) {
         console.log("[v0] User needs onboarding, redirecting to /intro")
         router.push("/intro")
+      } else if (!profile) {
+        console.log("[v0] No profile found, but not blocking navigation")
       }
     }
 

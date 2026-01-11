@@ -5,24 +5,27 @@ import { BETA_ENABLED } from "@/lib/config"
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
+
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
     if (!user) {
-      console.error("[v0] No user session found")
+      console.error("[v0] UPGRADE_ERROR: No user session found")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    console.log("[v0] UPGRADE_START:", { userId: user.id, email: user.email })
 
     // Parse request body for business details
     const body = await request.json()
     const businessName = body.business_name || ""
     const contactEmail = body.contact_email || user.email || ""
 
-    console.log("[v0] Upgrading user to organizer", {
-      userId: user.id,
+    console.log("[v0] UPGRADE_DETAILS:", {
       businessName,
       contactEmail,
+      betaEnabled: BETA_ENABLED,
     })
 
     // During beta, upgrade is free - just update role
@@ -37,7 +40,7 @@ export async function POST(request: NextRequest) {
         .eq("id", user.id)
 
       if (roleError) {
-        console.error("[v0] Failed to update user role:", roleError)
+        console.error("[v0] UPGRADE_ERROR: Failed to update user role:", roleError)
         return NextResponse.json(
           {
             error: "Failed to upgrade role",
@@ -46,6 +49,8 @@ export async function POST(request: NextRequest) {
           { status: 500 },
         )
       }
+
+      console.log("[v0] ROLE_UPDATE_SUCCESS: User role set to organizer")
 
       const trialEndsAt = new Date()
       trialEndsAt.setMonth(trialEndsAt.getMonth() + 3)
@@ -59,7 +64,6 @@ export async function POST(request: NextRequest) {
           trial_ends_at: trialEndsAt.toISOString(),
           is_trial_active: true,
           subscription_status: "trial",
-          created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
         {
@@ -68,7 +72,7 @@ export async function POST(request: NextRequest) {
       )
 
       if (profileError) {
-        console.error("[v0] Failed to create organizer profile:", profileError)
+        console.error("[v0] UPGRADE_ERROR: Failed to create organizer profile:", profileError)
         return NextResponse.json(
           {
             error: "Failed to create organizer profile",
@@ -78,7 +82,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      console.log("[v0] ORGANIZER_UPGRADE_SUCCESS", {
+      console.log("[v0] ORGANIZER_UPGRADE_SUCCESS:", {
         userId: user.id,
         email: user.email,
         businessName,
@@ -95,7 +99,7 @@ export async function POST(request: NextRequest) {
     // If not in beta, require payment (not implemented yet)
     return NextResponse.json({ error: "Payment required" }, { status: 402 })
   } catch (error: any) {
-    console.error("[v0] Upgrade error:", error)
+    console.error("[v0] UPGRADE_ERROR: Unexpected error:", error)
     return NextResponse.json(
       {
         error: "Internal server error",

@@ -21,7 +21,7 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs = 8000): Promise<T>
 
 /**
  * Fetch the current user's profile (client-side)
- * Returns null if no profile exists - DO NOT create one automatically
+ * Returns null if no profile exists - WILL NOT THROW ERROR
  */
 export async function getProfile(): Promise<Profile | null> {
   try {
@@ -37,16 +37,17 @@ export async function getProfile(): Promise<Profile | null> {
     }
 
     const { data: profile, error } = await withTimeout(
-      supabase.from("profiles").select("*").eq("id", user.id).single(),
+      supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       10000,
     )
 
     if (error) {
-      if (error.code === "PGRST116") {
-        console.log("[v0] Profile does not exist for user:", user.id)
-        return null
-      }
       console.error("[v0] Failed to fetch profile:", error?.message)
+      return null
+    }
+
+    if (!profile) {
+      console.log("[v0] Profile does not exist for user:", user.id)
       return null
     }
 
@@ -78,7 +79,7 @@ export async function createProfile(userId: string, userEmail: string | null): P
           updated_at: new Date().toISOString(),
         })
         .select()
-        .single(),
+        .maybeSingle(),
       10000,
     )
 
@@ -105,7 +106,7 @@ export async function ensureProfile(userId: string, userEmail: string | null): P
 
     // Try to fetch existing profile
     const { data: profile, error } = await withTimeout(
-      supabase.from("profiles").select("*").eq("id", userId).single(),
+      supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
       10000,
     )
 
