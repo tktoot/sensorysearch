@@ -44,7 +44,9 @@ export default function UpgradeOrganizerPage() {
       const success = await upgradeToOrganizer(organizerInfo.business_name, organizerInfo.business_contact_email)
 
       if (!success) {
-        throw new Error("Failed to upgrade to organizer")
+        setError("Failed to create organizer account. Please check the console for details.")
+        setLoading(false)
+        return
       }
 
       console.log("[v0] ROLE_SET_ORGANIZER - User role updated to organizer")
@@ -55,11 +57,10 @@ export default function UpgradeOrganizerPage() {
         description: "Your organizer account has been created.",
       })
 
-      window.location.href = nextPath
+      router.push(nextPath)
     } catch (err: any) {
       console.error("[v0] UPGRADE_ERROR - Failed to complete upgrade", err)
       setError(err?.message || "An unexpected error occurred. Please try again.")
-    } finally {
       setLoading(false)
     }
   }

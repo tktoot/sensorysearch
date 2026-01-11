@@ -224,6 +224,7 @@ export async function checkOrganizerRole(): Promise<boolean> {
 
 /**
  * Upgrade user to organizer role via API
+ * Improved error handling to always parse response safely
  */
 export async function upgradeToOrganizer(businessName?: string, contactEmail?: string): Promise<boolean> {
   try {
@@ -235,22 +236,28 @@ export async function upgradeToOrganizer(businessName?: string, contactEmail?: s
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        business_name: businessName || "",
-        contact_email: contactEmail || "",
+        businessName: businessName || "",
+        email: contactEmail || "",
       }),
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      console.error("[v0] Failed to upgrade to organizer:", error)
+      const raw = await response.text()
+      let parsed
+      try {
+        parsed = JSON.parse(raw)
+      } catch {
+        // If response is not JSON, use raw text
+      }
+      console.error("[v0] Failed to upgrade to organizer:", response.status, parsed ?? raw)
       return false
     }
 
     const data = await response.json()
     console.log("[v0] User upgraded to organizer successfully", data)
     return true
-  } catch (error) {
-    console.error("[v0] upgradeToOrganizer error:", error)
+  } catch (error: any) {
+    console.error("[v0] upgradeToOrganizer error:", error?.message || error)
     return false
   }
 }
