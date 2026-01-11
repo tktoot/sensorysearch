@@ -185,10 +185,8 @@ function ProfilePageContent() {
   }
 
   const handleSignOut = async () => {
-    console.log("[v0] SIGN_OUT_INITIATED")
     const supabase = createClient()
-
-    const { error } = await supabase.auth.signOut({ scope: "local" })
+    const { error } = await supabase.auth.signOut()
 
     if (error) {
       console.error("[v0] SIGN_OUT_ERROR", error)
@@ -198,24 +196,13 @@ function ProfilePageContent() {
         variant: "destructive",
       })
     } else {
-      console.log("[v0] SIGN_OUT_SUCCESS - Clearing all local state")
-
-      // Clear all local storage data
-      localStorage.clear()
-
-      // Clear session storage as well
-      sessionStorage.clear()
-
+      console.log("[v0] SIGN_OUT_SUCCESS")
       toast({
         title: "Signed out",
         description: "You've been signed out successfully",
       })
-
       setIsAuthenticated(false)
-      setUserProfile(null)
-
-      // Force a hard redirect to intro page to ensure clean state
-      window.location.href = "/intro"
+      router.push("/discover")
     }
   }
 
@@ -295,45 +282,48 @@ function ProfilePageContent() {
       <div className="container relative mx-auto px-4 py-6">
         <ProfileBanner />
 
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-teal-600 text-lg font-bold text-white shadow-md shrink-0">
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-teal-600 text-lg font-bold text-white shadow-md">
               {initials}
             </div>
-            <div className="flex-1 min-w-0">
+            <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight text-gradient truncate">Welcome back, {firstName}!</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-gradient">Welcome back, {firstName}!</h1>
                 {userProfile.role === "admin" && (
                   <Badge
                     variant="secondary"
-                    className="gap-1 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 shrink-0"
+                    className="gap-1 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
                   >
                     <Shield className="h-3 w-3" />
                     Admin
                   </Badge>
                 )}
               </div>
-              <Button
-                variant="link"
-                className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground"
-                onClick={() => setShowProfileDrawer(true)}
-              >
-                Edit Profile <ArrowRight className="ml-1 h-3 w-3" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="link"
+                  className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowProfileDrawer(true)}
+                >
+                  Edit Profile <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
+                {isAuthenticated && (
+                  <>
+                    <span className="text-muted-foreground">•</span>
+                    <Button
+                      variant="link"
+                      className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground"
+                      onClick={handleSignOut}
+                    >
+                      <LogOut className="mr-1 h-3 w-3" />
+                      Sign Out
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
-
-          {isAuthenticated && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 shrink-0 border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-red-900/30 dark:hover:bg-red-950/20 bg-transparent"
-              onClick={handleSignOut}
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Sign Out</span>
-            </Button>
-          )}
         </div>
 
         <div className="mb-6">
@@ -357,9 +347,9 @@ function ProfilePageContent() {
             </Link>
 
             <Link href="/events">
-              <Card className="group h-full cursor-pointer rounded-lg border border-purple-200/50 bg-gradient-to-br from-purple-50/80 to-purple-100/30 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md dark:border-purple-900/30 dark:from-purple-950/20 dark:to-purple-950/10">
+              <Card className="group h-full cursor-pointer rounded-lg border border-orange-200/50 bg-gradient-to-br from-orange-50/80 to-orange-100/30 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md dark:border-orange-900/30 dark:from-orange-950/20 dark:to-orange-950/10">
                 <CardContent className="flex items-center gap-3 p-2">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-500 shadow-sm">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500 shadow-sm">
                     <Calendar className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">

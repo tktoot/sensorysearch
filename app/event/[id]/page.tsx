@@ -19,13 +19,14 @@ import {
   ExternalLink,
   Accessibility,
 } from "lucide-react"
-import { mockEvents, mockVenues, type Event } from "@/lib/mock-data"
+import type { Event } from "@/lib/mock-data"
 import { trackEventView, addUserFavorite, removeUserFavorite, isEventFavorited } from "@/lib/analytics"
 import { eventToCalendarEvent } from "@/lib/calendar-utils"
 import { AddToCalendarDropdown } from "@/components/add-to-calendar-dropdown"
 import Link from "next/link"
 import { ExperienceSlider } from "@/components/experience-slider"
 import { FeedbackForm } from "@/components/feedback-form"
+import { createBrowserClient } from "@/lib/supabase-browser-client"
 
 export default function EventDetailPage() {
   const params = useParams()
@@ -33,25 +34,84 @@ export default function EventDetailPage() {
   const [event, setEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
   const [isSaved, setIsSaved] = useState(false)
+  const [venue, setVenue] = useState<any>(null)
 
   useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      const foundEvent = mockEvents.find((e) => e.id === params.id)
-      setEvent(foundEvent || null)
-      setLoading(false)
+    async function fetchEvent() {
+      try {
+        const supabase = createBrowserClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        )
 
-      if (foundEvent && foundEvent.businessEmail) {
-        trackEventView(foundEvent.id, foundEvent.businessEmail)
-        console.log("[v0] Tracked view for event:", foundEvent.id)
+        const { data: eventData, error } = await supabase.from("events").select("*").eq("id", params.id).single()
+
+        if (error || !eventData) {
+          console.error("[v0] Error fetching event:", error)
+          setEvent(null)
+          setLoading(false)
+          return
+        }
+
+        const mappedEvent: Event = {
+          id: eventData.id,
+          name: eventData.name,
+          description: eventData.description,
+          venueName: eventData.venue_name || eventData.address,
+          venueId: eventData.venue_id || null,
+          city: eventData.city,
+          date: eventData.event_date,
+          time: eventData.event_start_time || "TBD",
+          imageUrl: eventData.images?.[0] || eventData.hero_image_url || "/community-event.png",
+          capacity: eventData.capacity || 50,
+          registered: 0,
+          ageRange: { min: 0, max: 99 },
+          coordinates:
+            eventData.latitude && eventData.longitude
+              ? { lat: Number.parseFloat(eventData.latitude), lng: Number.parseFloat(eventData.longitude) }
+              : null,
+          sensoryAttributes: {
+            noiseLevel: eventData.noise_level || "Quiet",
+            lighting: eventData.lighting || "Soft",
+            crowdDensity: eventData.crowd_level || "Low",
+            hasQuietSpace: eventData.quiet_space_available || false,
+            wheelchairAccessible: eventData.wheelchair_accessible || false,
+          },
+          tags: eventData.sensory_features || [],
+          businessEmail: eventData.email,
+          crowdLevel: eventData.crowd_level,
+        }
+
+        setEvent(mappedEvent)
+        setIsSaved(isEventFavorited(mappedEvent.id))
+
+        if (mappedEvent.businessEmail) {
+          trackEventView(mappedEvent.id, mappedEvent.businessEmail)
+          console.log("[v0] Tracked view for event:", mappedEvent.id)
+        }
+
+        // Fetch venue if venue_id exists
+        if (eventData.venue_id) {
+          const { data: venueData } = await supabase.from("venues").select("*").eq("id", eventData.venue_id).single()
+
+          if (venueData) {
+            setVenue({
+              id: venueData.id,
+              name: venueData.name,
+              city: venueData.city,
+              imageUrl: venueData.images?.[0] || venueData.hero_image_url || "/elegant-wedding-venue.png",
+            })
+          }
+        }
+      } catch (error) {
+        console.error("[v0] Error fetching event:", error)
+        setEvent(null)
+      } finally {
+        setLoading(false)
       }
+    }
 
-      if (foundEvent) {
-        setIsSaved(isEventFavorited(foundEvent.id))
-      }
-    }, 300)
-
-    return () => clearTimeout(timer)
+    fetchEvent()
   }, [params.id])
 
   const handleSave = () => {
@@ -80,7 +140,6 @@ export default function EventDetailPage() {
         console.log("Share cancelled")
       }
     } else {
-      // Fallback: copy to clipboard
       navigator.clipboard.writeText(window.location.href)
       alert("Link copied to clipboard!")
     }
@@ -131,7 +190,6 @@ export default function EventDetailPage() {
     )
   }
 
-  const venue = mockVenues.find((v) => v.id === event.venueId)
   const calendarEvent = eventToCalendarEvent(event)
 
   return (
@@ -161,9 +219,13 @@ export default function EventDetailPage() {
             <div className="space-y-2 text-muted-foreground">
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
-                <Link href={`/venue/${event.venueId}`} className="hover:underline text-foreground font-medium">
-                  {event.venueName}
-                </Link>
+                {event.venueId ? (
+                  <Link href={`/venue/${event.venueId}`} className="hover:underline text-foreground font-medium">
+                    {event.venueName}
+                  </Link>
+                ) : (
+                  <span className="text-foreground font-medium">{event.venueName}</span>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"

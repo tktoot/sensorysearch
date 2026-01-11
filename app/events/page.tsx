@@ -4,14 +4,14 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Calendar, Clock, MapPin, Users, Volume2, Sun, Info } from 'lucide-react'
-import { filterEventsByAge, filterActiveEvents, type UserProfile, type Event } from "@/lib/mock-data"
+import { Calendar, Clock, MapPin, Users, Volume2, Sun, Info } from "lucide-react"
+import { mockEvents, filterEventsByAge, type UserProfile } from "@/lib/mock-data"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
+import { createBrowserClient } from "@/lib/supabase-browser-client"
 
 export default function EventsPage() {
   const [userProfile, setUserProfile] = useState<UserProfile>({ agePreference: null })
-  const [events, setEvents] = useState<Event[]>([])
+  const [events, setEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -20,60 +20,53 @@ export default function EventsPage() {
       setUserProfile(JSON.parse(savedProfile))
     }
 
-    const fetchApprovedEvents = async () => {
+    async function fetchEvents() {
       try {
-        console.log("[v0] EVENTS_FETCH: Fetching approved events from Supabase...")
-        const supabase = createClient()
-        
-        const { data, error } = await supabase
-          .from("listings")
+        const supabase = createBrowserClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        )
+
+        const { data: eventsData, error } = await supabase
+          .from("events")
           .select("*")
-          .eq("status", "approved")
-          .eq("type", "event")
+          .gte("event_date", new Date().toISOString().split("T")[0])
           .order("event_date", { ascending: true })
 
         if (error) {
-          console.error("[v0] EVENTS_FETCH_ERROR:", error)
-          setLoading(false)
-          return
+          console.error("[v0] Error fetching events:", error)
+          setEvents(mockEvents)
+        } else if (eventsData) {
+          const mapped = eventsData.map((e: any) => ({
+            id: e.id,
+            name: e.name,
+            description: e.description,
+            venueName: e.venue_name || e.address,
+            date: e.event_date,
+            time: e.event_start_time || "TBD",
+            imageUrl: e.images?.[0] || "/placeholder.svg",
+            capacity: e.capacity || 50,
+            registered: 0,
+            sensoryAttributes: {
+              noiseLevel: e.noise_level || "Quiet",
+              lighting: e.lighting || "Soft",
+            },
+            tags: e.sensory_features || [],
+          }))
+          setEvents(mapped)
         }
-
-        console.log("[v0] EVENTS_FETCH_SUCCESS:", data?.length || 0, "events")
-
-        const approvedEvents: Event[] = data.map(item => ({
-          id: item.id,
-          name: item.title,
-          description: item.description,
-          venueName: item.title,
-          city: item.city,
-          date: item.event_date || new Date().toISOString(),
-          time: item.event_start_time || '10:00 AM',
-          capacity: 50,
-          registered: 0,
-          imageUrl: item.images?.[0] || '/placeholder.svg',
-          coordinates: item.coordinates || { lat: 0, lng: 0 },
-          sensoryAttributes: {
-            noiseLevel: item.sensory_features?.includes('lowNoise') ? 'Quiet' : 'Moderate',
-            lighting: item.sensory_features?.includes('gentleLighting') ? 'Soft' : 'Natural',
-            crowdDensity: item.sensory_features?.includes('crowdManaged') ? 'Low' : 'Moderate',
-          },
-          tags: item.sensory_features || [],
-          ageGroups: ['all ages'],
-        }))
-
-        setEvents(approvedEvents)
-      } catch (err) {
-        console.error("[v0] EVENTS_FETCH_FAILED:", err)
+      } catch (error) {
+        console.error("[v0] Error:", error)
+        setEvents(mockEvents)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchApprovedEvents()
+    fetchEvents()
   }, [])
 
-  const activeEvents = filterActiveEvents(events)
-  const filteredEvents = filterEventsByAge(activeEvents, userProfile.agePreference)
+  const filteredEvents = filterEventsByAge(events, userProfile.agePreference)
 
   return (
     <div className="container mx-auto px-4 py-8">

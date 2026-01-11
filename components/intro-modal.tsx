@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
+import { getProfile } from "@/lib/profile-helpers"
+import { createClient } from "@/lib/supabase/client"
 
 export function IntroModal() {
   const router = useRouter()
   const pathname = usePathname()
   const [isClient, setIsClient] = useState(false)
+  const [isChecking, setIsChecking] = useState(true)
 
   useEffect(() => {
     setIsClient(true)
@@ -17,17 +20,32 @@ export function IntroModal() {
 
     // Don't show intro if already on intro page
     if (pathname === "/intro") {
+      setIsChecking(false)
       return
     }
 
-    // Check if intro has been completed
-    const introCompleted = localStorage.getItem("introCompleted")
-
-    if (!introCompleted) {
-      // Show intro on first visit
-      router.push("/intro")
-    }
+    // Check onboarding status from Supabase
+    checkOnboardingStatus()
   }, [pathname, router, isClient])
+
+  const checkOnboardingStatus = async () => {
+    const supabase = createClient()
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (session) {
+      // User is authenticated, check profile
+      const profile = await getProfile()
+
+      if (profile && !profile.has_seen_onboarding) {
+        console.log("[v0] User needs onboarding, redirecting to /intro")
+        router.push("/intro")
+      }
+    }
+
+    setIsChecking(false)
+  }
 
   return null
 }

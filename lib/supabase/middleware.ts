@@ -1,76 +1,33 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "tktoot1@yahoo.com,tktut1@yahoo.com")
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "tktoot1@yahoo.com,tktut1@yahoo.com,contact@sensorysearch.com")
   .split(",")
   .map((email) => email.trim().toLowerCase())
-
-function getSupabaseUrl(): string {
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    return process.env.NEXT_PUBLIC_SUPABASE_URL
-  }
-
-  const postgresUrl = process.env.POSTGRES_URL || ""
-  
-  // Try multiple patterns to extract project reference
-  // Pattern 1: postgresql://postgres.[project-ref]:...
-  let match = postgresUrl.match(/postgres\.([a-zA-Z0-9-]+)/)
-  
-  // Pattern 2: @aws-0-[region].pooler.supabase.com contains project in subdomain
-  if (!match) {
-    match = postgresUrl.match(/\/\/([^:@]+)@/)
-    if (match && match[1].includes('.')) {
-      const parts = match[1].split('.')
-      if (parts.length > 1) {
-        return `https://${parts[1]}.supabase.co`
-      }
-    }
-  }
-  
-  if (match && match[1]) {
-    const projectRef = match[1]
-    console.log('[v0] SUPABASE_URL extracted from POSTGRES_URL:', `https://${projectRef}.supabase.co`)
-    return `https://${projectRef}.supabase.co`
-  }
-
-  console.warn('[v0] SUPABASE_URL not found. Middleware will skip auth checks.')
-  return ''
-}
-
-function getSupabaseAnonKey(): string {
-  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ""
-}
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   })
 
-  const supabaseUrl = getSupabaseUrl()
-  const supabaseAnonKey = getSupabaseAnonKey()
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn("[v0] Supabase credentials missing. Skipping auth middleware.", {
-      hasUrl: !!supabaseUrl,
-      hasKey: !!supabaseAnonKey,
-    })
-    return supabaseResponse
-  }
-
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll()
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-        supabaseResponse = NextResponse.next({
-          request,
-        })
-        cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options))
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          supabaseResponse = NextResponse.next({
+            request,
+          })
+          cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options))
+        },
       },
     },
-  })
+  )
 
   // IMPORTANT: Always call getUser() to refresh the session
   const {
@@ -101,6 +58,55 @@ export async function updateSession(request: NextRequest) {
           console.error("[v0] Failed to sync user role:", error)
         }
       })
+
+    // Check if this is an OAuth callback (user just signed in via OAuth)
+    const isOAuthCallback =
+      request.nextUrl.searchParams.has("code") || request.nextUrl.pathname.includes("/auth/callback")
+
+    if (isOAuthCallback) {
+      // Ensure profile exists
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, has_seen_onboarding")
+        .eq("id", user.id)
+        .single()
+
+      if (!profile) {
+        // Create profile if it doesn't exist
+        await supabase
+          .from("profiles")
+          .insert({
+            id: user.id,
+            email: user.email,
+            has_seen_onboarding: true, // Mark as complete for OAuth users
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .then(({ error }) => {
+            if (error) {
+              console.error("[v0] Failed to create profile:", error)
+            } else {
+              console.log("[v0] Created profile and marked onboarding complete for OAuth user")
+            }
+          })
+      } else if (!profile.has_seen_onboarding) {
+        // Update existing profile to mark onboarding complete
+        await supabase
+          .from("profiles")
+          .update({
+            has_seen_onboarding: true,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", user.id)
+          .then(({ error }) => {
+            if (error) {
+              console.error("[v0] Failed to update profile:", error)
+            } else {
+              console.log("[v0] Marked onboarding complete for OAuth user")
+            }
+          })
+      }
+    }
   }
 
   return supabaseResponse

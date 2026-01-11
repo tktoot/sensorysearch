@@ -91,12 +91,12 @@ export default function ResourcesPage() {
             </div>
             <div className="space-y-4 text-base md:text-lg leading-relaxed text-foreground/90">
               <p>
-                For many families, going out can feel isolating — not because they don't want to, but because the world
-                isn't always designed with sensory needs in mind.
+                For many families, going out can feel overwhelming, not because they don't want to participate, but
+                because they're unsure what to expect.
               </p>
               <p>
-                By making your business sensory-friendly, you're not just improving comfort — you're creating
-                connection, understanding, and community.
+                Sensory-friendly spaces offer more than comfort. They provide peace of mind, helping families feel
+                confident, prepared, and supported before they even arrive.
               </p>
             </div>
           </CardContent>
@@ -165,20 +165,12 @@ export default function ResourcesPage() {
             <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
               List your sensory-friendly events and venues on SensorySearch so families can find you.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button asChild size="lg" className="gap-2">
-                <Link href="/advertise?type=event">
-                  <Calendar className="h-5 w-5" />
-                  List an Event
-                </Link>
-              </Button>
-              <Button asChild size="lg" variant="outline" className="gap-2 bg-transparent">
-                <Link href="/advertise?type=venue">
-                  <Armchair className="h-5 w-5" />
-                  List a Venue
-                </Link>
-              </Button>
-            </div>
+            <Button asChild size="lg" className="gap-2 min-w-[240px]">
+              <Link href="/submit">
+                <Heart className="h-5 w-5" />
+                Share Your Sensory-Friendly Space
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       </div>

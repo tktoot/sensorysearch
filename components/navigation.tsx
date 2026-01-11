@@ -10,6 +10,7 @@ import { getCurrentUser, type UserRole } from "@/lib/auth-utils"
 import type { UserProfile } from "@/lib/mock-data"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { SearchOverlay } from "@/components/search-overlay"
+import { resetOnboarding } from "@/lib/profile-helpers"
 
 export function Navigation() {
   const pathname = usePathname()
@@ -52,9 +53,9 @@ export function Navigation() {
       label: "Replay Intro",
       icon: Play,
       description: "See the welcome tour again",
-      onClick: () => {
-        localStorage.removeItem("introCompleted")
-        console.log("[v0] Cleared intro flag, replaying intro")
+      onClick: async () => {
+        console.log("[v0] Resetting onboarding flag in Supabase")
+        await resetOnboarding()
       },
     },
   ]

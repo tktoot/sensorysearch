@@ -30,20 +30,20 @@ export async function POST(request: NextRequest) {
     const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
 
     // Upload to Supabase Storage
-    const { data, error } = await supabase.storage.from("public-uploads").upload(fileName, file, {
+    const { data, error } = await supabase.storage.from("listings").upload(fileName, file, {
       cacheControl: "3600",
       upsert: false,
     })
 
     if (error) {
       console.error("[v0] Supabase Storage error:", error)
-      return NextResponse.json({ error: "Upload failed: " + error.message }, { status: 500 })
+      return NextResponse.json({ error: "Upload failed" }, { status: 500 })
     }
 
     // Get public URL
     const {
       data: { publicUrl },
-    } = supabase.storage.from("public-uploads").getPublicUrl(data.path)
+    } = supabase.storage.from("listings").getPublicUrl(data.path)
 
     console.log("[v0] IMAGE_UPLOADED", { path: data.path, url: publicUrl })
 

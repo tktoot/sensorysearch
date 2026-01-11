@@ -2,24 +2,28 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
-import { PhotoUploader } from "@/components/photo-uploader"
+import { ImageUpload } from "@/components/image-upload"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { isValidUrl, normalizeUrl } from "@/lib/url-utils"
+import { checkSubmissionAccess } from "@/lib/submission-guard"
+import { SensoryAccessibilitySection } from "@/components/submission-forms/sensory-accessibility-section"
+import { EventSpecificSection } from "@/components/submission-forms/event-specific-section"
+import type { NoiseLevel, LightingLevel, CrowdLevel, DensityLevel } from "@/lib/constants/sensory-fields"
 
 export default function SubmitEventPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [submitting, setSubmitting] = useState(false)
+  const [checking, setChecking] = useState(true)
   const [images, setImages] = useState<string[]>([])
   const [formData, setFormData] = useState({
     title: "",
@@ -33,22 +37,51 @@ export default function SubmitEventPage() {
     website: "",
     contactEmail: "",
     phone: "",
-    lowNoise: false,
-    gentleLighting: false,
-    crowdManaged: false,
-    quietRoom: false,
-    visualAids: false,
+    noiseLevel: "" as NoiseLevel | "",
+    lightingLevel: "" as LightingLevel | "",
+    crowdLevel: "" as CrowdLevel | "",
+    densityLevel: "" as DensityLevel | "",
+    wheelchairAccessible: false,
+    accessibleParking: false,
+    accessibleRestroom: false,
+    quietSpaceAvailable: false,
+    sensoryFriendlyHours: false,
+    headphonesAllowed: false,
+    staffTrained: false,
+    amplifiedSound: false,
+    flashingLights: false,
+    indoorEvent: false,
+    outdoorEvent: false,
+    expectedCrowdSize: "",
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    checkAccess()
+  }, [])
+
+  const checkAccess = async () => {
+    const result = await checkSubmissionAccess("/organizer/submit/event")
+    if (!result.allowed && result.redirect) {
+      router.push(result.redirect)
+    } else {
+      setChecking(false)
+    }
+  }
+
+  if (checking) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrors({})
 
-    console.log("[v0] EVENT_SUBMIT: Starting submission...")
-
-    // Validation
     const newErrors: Record<string, string> = {}
     if (!formData.title.trim()) newErrors.title = "Title is required"
     if (!formData.description.trim()) newErrors.description = "Description is required"
@@ -60,12 +93,15 @@ export default function SubmitEventPage() {
     if (!formData.zip.trim()) newErrors.zip = "ZIP code is required"
     if (!formData.date) newErrors.date = "Date is required"
     if (!formData.time) newErrors.time = "Time is required"
+    if (!formData.noiseLevel) newErrors.noiseLevel = "Noise level is required"
+    if (!formData.lightingLevel) newErrors.lightingLevel = "Lighting level is required"
+    if (!formData.crowdLevel) newErrors.crowdLevel = "Crowd level is required"
+    if (!formData.densityLevel) newErrors.densityLevel = "Density level is required"
     if (formData.website && !isValidUrl(formData.website)) {
       newErrors.website = "Please enter a valid URL (e.g., example.com or https://example.com)"
     }
 
     if (Object.keys(newErrors).length > 0) {
-      console.log("[v0] EVENT_SUBMIT: Validation errors", newErrors)
       setErrors(newErrors)
       toast({
         title: "Validation Error",
@@ -75,59 +111,58 @@ export default function SubmitEventPage() {
       return
     }
 
-    console.log("[v0] EVENT_SUBMIT: Validation passed, submitting to API...")
     setSubmitting(true)
 
     try {
-      const payload = {
-        type: "event",
-        title: formData.title,
-        description: formData.description,
-        address: {
-          street: formData.street,
-          city: formData.city,
-          state: formData.state,
-          zip: formData.zip,
-        },
-        date: formData.date,
-        time: formData.time,
-        website: formData.website ? normalizeUrl(formData.website) : "",
-        contactEmail: formData.contactEmail,
-        phone: formData.phone,
-        sensoryAttributes: {
-          lowNoise: formData.lowNoise,
-          gentleLighting: formData.gentleLighting,
-          crowdManaged: formData.crowdManaged,
-          quietRoom: formData.quietRoom,
-          visualAids: formData.visualAids,
-        },
-        images,
-      }
-
-      console.log("[v0] EVENT_SUBMIT: Payload prepared", {
-        type: payload.type,
-        title: payload.title,
-        imageCount: payload.images.length,
-        date: payload.date,
-        time: payload.time,
-      })
-
       const response = await fetch("/api/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          type: "event",
+          title: formData.title,
+          description: formData.description,
+          address: {
+            street: formData.street,
+            city: formData.city,
+            state: formData.state,
+            zip: formData.zip,
+          },
+          date: formData.date,
+          time: formData.time,
+          website: formData.website ? normalizeUrl(formData.website) : "",
+          contactEmail: formData.contactEmail,
+          phone: formData.phone,
+          sensory: {
+            noiseLevel: formData.noiseLevel,
+            lightingLevel: formData.lightingLevel,
+            crowdLevel: formData.crowdLevel,
+            densityLevel: formData.densityLevel,
+          },
+          accessibility: {
+            wheelchairAccessible: formData.wheelchairAccessible,
+            accessibleParking: formData.accessibleParking,
+            accessibleRestroom: formData.accessibleRestroom,
+          },
+          sensorySupports: {
+            quietSpaceAvailable: formData.quietSpaceAvailable,
+            sensoryFriendlyHours: formData.sensoryFriendlyHours,
+            headphonesAllowed: formData.headphonesAllowed,
+            staffTrained: formData.staffTrained,
+          },
+          eventDetails: {
+            amplifiedSound: formData.amplifiedSound,
+            flashingLights: formData.flashingLights,
+            indoorEvent: formData.indoorEvent,
+            outdoorEvent: formData.outdoorEvent,
+            expectedCrowdSize: formData.expectedCrowdSize,
+          },
+          images,
+        }),
       })
 
-      console.log("[v0] EVENT_SUBMIT: API response status", response.status)
-
       if (!response.ok) {
-        const errorData = await response.json()
-        console.error("[v0] EVENT_SUBMIT: API error", errorData)
-        throw new Error(errorData.error || "Submission failed")
+        throw new Error("Submission failed")
       }
-
-      const result = await response.json()
-      console.log("[v0] EVENT_SUBMIT: Success!", result)
 
       toast({
         title: "Submitted for Review",
@@ -136,10 +171,10 @@ export default function SubmitEventPage() {
 
       router.push("/organizer")
     } catch (error) {
-      console.error("[v0] EVENT_SUBMIT: Error", error)
+      console.error("[v0] Submission error:", error)
       toast({
         title: "Submission Failed",
-        description: error instanceof Error ? error.message : "Please try again later",
+        description: "Please try again later",
         variant: "destructive",
       })
     } finally {
@@ -148,11 +183,11 @@ export default function SubmitEventPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl">
+    <div className="container mx-auto px-4 py-8 max-w-3xl pb-24">
       <Button asChild variant="ghost" className="mb-6 gap-2">
-        <Link href="/organizer">
+        <Link href="/submit">
           <ArrowLeft className="h-4 w-4" />
-          Back to Dashboard
+          Back to Submit Options
         </Link>
       </Button>
 
@@ -304,63 +339,46 @@ export default function SubmitEventPage() {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <Label>Sensory Attributes</Label>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="lowNoise"
-                    checked={formData.lowNoise}
-                    onCheckedChange={(checked) => setFormData({ ...formData, lowNoise: checked as boolean })}
-                  />
-                  <label htmlFor="lowNoise" className="text-sm cursor-pointer">
-                    Low Noise Environment
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="gentleLighting"
-                    checked={formData.gentleLighting}
-                    onCheckedChange={(checked) => setFormData({ ...formData, gentleLighting: checked as boolean })}
-                  />
-                  <label htmlFor="gentleLighting" className="text-sm cursor-pointer">
-                    Gentle Lighting
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="crowdManaged"
-                    checked={formData.crowdManaged}
-                    onCheckedChange={(checked) => setFormData({ ...formData, crowdManaged: checked as boolean })}
-                  />
-                  <label htmlFor="crowdManaged" className="text-sm cursor-pointer">
-                    Crowd Managed
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="quietRoom"
-                    checked={formData.quietRoom}
-                    onCheckedChange={(checked) => setFormData({ ...formData, quietRoom: checked as boolean })}
-                  />
-                  <label htmlFor="quietRoom" className="text-sm cursor-pointer">
-                    Quiet Room Available
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="visualAids"
-                    checked={formData.visualAids}
-                    onCheckedChange={(checked) => setFormData({ ...formData, visualAids: checked as boolean })}
-                  />
-                  <label htmlFor="visualAids" className="text-sm cursor-pointer">
-                    Visual Aids Provided
-                  </label>
-                </div>
-              </div>
-            </div>
+            <ImageUpload images={images} onChange={setImages} />
 
-            <PhotoUploader images={images} onChange={setImages} entityType="event" maxFiles={6} maxSizeMB={5} />
+            <SensoryAccessibilitySection
+              noiseLevel={formData.noiseLevel}
+              lightingLevel={formData.lightingLevel}
+              crowdLevel={formData.crowdLevel}
+              densityLevel={formData.densityLevel}
+              wheelchairAccessible={formData.wheelchairAccessible}
+              accessibleParking={formData.accessibleParking}
+              accessibleRestroom={formData.accessibleRestroom}
+              quietSpaceAvailable={formData.quietSpaceAvailable}
+              sensoryFriendlyHours={formData.sensoryFriendlyHours}
+              headphonesAllowed={formData.headphonesAllowed}
+              staffTrained={formData.staffTrained}
+              onNoiseChange={(value) => setFormData({ ...formData, noiseLevel: value })}
+              onLightingChange={(value) => setFormData({ ...formData, lightingLevel: value })}
+              onCrowdChange={(value) => setFormData({ ...formData, crowdLevel: value })}
+              onDensityChange={(value) => setFormData({ ...formData, densityLevel: value })}
+              onWheelchairChange={(checked) => setFormData({ ...formData, wheelchairAccessible: checked })}
+              onAccessibleParkingChange={(checked) => setFormData({ ...formData, accessibleParking: checked })}
+              onAccessibleRestroomChange={(checked) => setFormData({ ...formData, accessibleRestroom: checked })}
+              onQuietSpaceChange={(checked) => setFormData({ ...formData, quietSpaceAvailable: checked })}
+              onSensoryHoursChange={(checked) => setFormData({ ...formData, sensoryFriendlyHours: checked })}
+              onHeadphonesChange={(checked) => setFormData({ ...formData, headphonesAllowed: checked })}
+              onStaffTrainedChange={(checked) => setFormData({ ...formData, staffTrained: checked })}
+              errors={errors}
+            />
+
+            <EventSpecificSection
+              amplifiedSound={formData.amplifiedSound}
+              flashingLights={formData.flashingLights}
+              indoorEvent={formData.indoorEvent}
+              outdoorEvent={formData.outdoorEvent}
+              expectedCrowdSize={formData.expectedCrowdSize}
+              onAmplifiedSoundChange={(checked) => setFormData({ ...formData, amplifiedSound: checked })}
+              onFlashingLightsChange={(checked) => setFormData({ ...formData, flashingLights: checked })}
+              onIndoorEventChange={(checked) => setFormData({ ...formData, indoorEvent: checked })}
+              onOutdoorEventChange={(checked) => setFormData({ ...formData, outdoorEvent: checked })}
+              onCrowdSizeChange={(value) => setFormData({ ...formData, expectedCrowdSize: value })}
+            />
 
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? (

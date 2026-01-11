@@ -67,8 +67,8 @@ export default function RefundAndAdvertisingPage() {
           <h2 className="text-2xl font-heading font-semibold mb-3">Disputes</h2>
           <p className="text-muted-foreground leading-relaxed">
             If you have a dispute regarding a listing or payment, please contact us at{" "}
-            <a href="mailto:support@sensorysearch.app" className="text-primary hover:underline">
-              support@sensorysearch.app
+            <a href="mailto:contact@sensorysearch.com" className="text-primary hover:underline">
+              contact@sensorysearch.com
             </a>{" "}
             within 30 days.
           </p>

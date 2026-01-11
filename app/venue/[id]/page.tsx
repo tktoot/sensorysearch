@@ -22,10 +22,11 @@ import {
   Calendar,
   Clock,
 } from "lucide-react"
-import { mockVenues, mockEvents, type Venue } from "@/lib/mock-data"
+import type { Venue } from "@/lib/mock-data"
 import Link from "next/link"
 import { ExperienceSlider } from "@/components/experience-slider"
 import { FeedbackForm } from "@/components/feedback-form"
+import { createBrowserClient } from "@/lib/supabase-browser-client"
 
 export default function VenueDetailPage() {
   const params = useParams()
@@ -33,20 +34,77 @@ export default function VenueDetailPage() {
   const [venue, setVenue] = useState<Venue | null>(null)
   const [loading, setLoading] = useState(true)
   const [isSaved, setIsSaved] = useState(false)
+  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([])
 
   useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      const foundVenue = mockVenues.find((v) => v.id === params.id)
-      setVenue(foundVenue || null)
-      setLoading(false)
+    async function fetchVenue() {
+      try {
+        const supabase = createBrowserClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        )
 
-      // Check if venue is saved
-      const savedVenues = JSON.parse(localStorage.getItem("savedVenues") || "[]")
-      setIsSaved(savedVenues.includes(params.id))
-    }, 300)
+        const { data: venueData, error } = await supabase.from("venues").select("*").eq("id", params.id).single()
 
-    return () => clearTimeout(timer)
+        if (error || !venueData) {
+          console.error("[v0] Error fetching venue:", error)
+          setVenue(null)
+          setLoading(false)
+          return
+        }
+
+        const mappedVenue: Venue = {
+          id: venueData.id,
+          name: venueData.name,
+          description: venueData.description,
+          category: venueData.category || "Other",
+          city: venueData.city,
+          address: venueData.address,
+          rating: 4.5,
+          imageUrl: venueData.images?.[0] || venueData.hero_image_url || "/elegant-wedding-venue.png",
+          coordinates:
+            venueData.latitude && venueData.longitude
+              ? { lat: Number.parseFloat(venueData.latitude), lng: Number.parseFloat(venueData.longitude) }
+              : null,
+          sensoryAttributes: {
+            noiseLevel: venueData.noise_level || "Moderate",
+            lighting: venueData.lighting || "Natural",
+            crowdDensity: venueData.crowd_level || "Moderate",
+            hasQuietSpace: venueData.quiet_space_available || false,
+            wheelchairAccessible: venueData.wheelchair_accessible || false,
+            sensoryFriendlyHours: venueData.sensory_friendly_hours_available || false,
+          },
+          tags: venueData.sensory_features || [],
+          listingType: "business",
+        }
+
+        setVenue(mappedVenue)
+
+        // Check if venue is saved
+        const savedVenues = JSON.parse(localStorage.getItem("savedVenues") || "[]")
+        setIsSaved(savedVenues.includes(params.id))
+
+        // Fetch upcoming events at this venue
+        const { data: eventsData } = await supabase
+          .from("events")
+          .select("*")
+          .eq("venue_id", params.id)
+          .gte("event_date", new Date().toISOString().split("T")[0])
+          .order("event_date", { ascending: true })
+          .limit(4)
+
+        if (eventsData) {
+          setUpcomingEvents(eventsData)
+        }
+      } catch (error) {
+        console.error("[v0] Error fetching venue:", error)
+        setVenue(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchVenue()
   }, [params.id])
 
   const handleSave = () => {
@@ -74,7 +132,6 @@ export default function VenueDetailPage() {
         console.log("Share cancelled")
       }
     } else {
-      // Fallback: copy to clipboard
       navigator.clipboard.writeText(window.location.href)
       alert("Link copied to clipboard!")
     }
@@ -124,12 +181,6 @@ export default function VenueDetailPage() {
       </div>
     )
   }
-
-  // Get upcoming events for this venue
-  const upcomingEvents = mockEvents
-    .filter((event) => event.venueId === venue.id)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .slice(0, 4)
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -304,7 +355,7 @@ export default function VenueDetailPage() {
                       <Card className="group h-full transition-all hover:shadow-lg">
                         <div className="relative aspect-video overflow-hidden rounded-t-lg">
                           <img
-                            src={event.imageUrl || "/placeholder.svg?height=200&width=400&query=event"}
+                            src={event.images?.[0] || "/community-event.png"}
                             alt={event.name}
                             className="h-full w-full object-cover transition-transform group-hover:scale-105"
                           />
@@ -314,14 +365,14 @@ export default function VenueDetailPage() {
                           <CardDescription className="space-y-1">
                             <div className="flex items-center gap-1 text-xs">
                               <Calendar className="h-3 w-3" />
-                              {new Date(event.date).toLocaleDateString("en-US", {
+                              {new Date(event.event_date).toLocaleDateString("en-US", {
                                 month: "short",
                                 day: "numeric",
                               })}
                             </div>
                             <div className="flex items-center gap-1 text-xs">
                               <Clock className="h-3 w-3" />
-                              {event.time}
+                              {event.event_start_time || "TBD"}
                             </div>
                           </CardDescription>
                         </CardHeader>

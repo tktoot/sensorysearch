@@ -8,8 +8,6 @@ import { PageViewTracker } from "@/components/page-view-tracker"
 import { Footer } from "@/components/footer"
 import { BottomTabBar } from "@/components/bottom-tab-bar"
 import { IntroModal } from "@/components/intro-modal"
-import { AdminDebugBanner } from "@/components/admin-debug-banner"
-import { ClientErrorHandler } from "@/components/client-error-handler"
 
 const nunito = Nunito({
   subsets: ["latin"],
@@ -54,7 +52,6 @@ export default function RootLayout({
         <meta name="theme-color" content="#0FA3B1" />
       </head>
       <body className={`font-sans ${nunito.variable} ${inter.variable} antialiased`}>
-        <ClientErrorHandler />
         <SeedInitializer />
         <PageViewTracker />
         <IntroModal />
@@ -62,7 +59,6 @@ export default function RootLayout({
         <main className="min-h-screen bg-background pb-20 md:pb-0">{children}</main>
         <Footer />
         <BottomTabBar />
-        <AdminDebugBanner />
       </body>
     </html>
   )

@@ -68,8 +68,8 @@ export default function PrivacyPage() {
           <h2 className="text-2xl font-heading font-semibold mb-3">Contact</h2>
           <p className="text-muted-foreground leading-relaxed">
             If you have any questions about this privacy policy, please contact us at{" "}
-            <a href="mailto:support@sensorysearch.app" className="text-primary hover:underline">
-              support@sensorysearch.app
+            <a href="mailto:contact@sensorysearch.com" className="text-primary hover:underline">
+              contact@sensorysearch.com
             </a>
           </p>
         </section>

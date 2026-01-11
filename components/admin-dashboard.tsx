@@ -5,624 +5,518 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
+import { Loader2 } from "lucide-react"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { MapPin, Calendar, AlertCircle, CheckCircle, XCircle, Loader2, ExternalLink, Mail, PhoneIcon, Clock, RefreshCw } from 'lucide-react'
+  MapPin,
+  Calendar,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+  DollarSign,
+  CreditCard,
+  Sparkles,
+  Star,
+  Bell,
+  Phone,
+  Gift,
+  Shield,
+} from "lucide-react"
+import { mockVenues, mockEvents } from "@/lib/mock-data"
 import { createClient } from "@/lib/supabase/client"
-import { useToast } from "@/hooks/use-toast"
 
-interface Listing {
+interface Subscription {
   id: string
-  type: string
-  title: string
-  description: string
-  address: string
-  city: string
-  state: string
-  zip: string
-  website: string | null
-  email: string | null
-  phone: string | null
-  images: string[]
-  status: string
-  organizer_email: string | null
-  submitted_at: string
-  reviewed_at: string | null
-  sensory_features: string[]
-  event_date: string | null
-  event_start_time: string | null
+  businessName: string
+  email: string
+  tier: "basic" | "featured" | "premium"
+  monthlyPrice: number
+  status: "active" | "cancelled" | "past_due"
+  startDate: string
+  nextBillingDate: string
+  paymentMethod: string
+  isFreeTrial?: boolean
+  phoneVerified?: boolean
+  phoneNumber?: string
 }
 
 export function AdminDashboard() {
-  const [listings, setListings] = useState<Listing[]>([])
+  const [submissions, setSubmissions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
-  const [selectedListing, setSelectedListing] = useState<Listing | null>(null)
-  const [rejectionReason, setRejectionReason] = useState("")
-  const { toast } = useToast()
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
+
+  const tierInfo = {
+    basic: { name: "Basic", icon: Sparkles, color: "bg-blue-500/10 text-blue-500" },
+    featured: { name: "Featured", icon: Star, color: "bg-amber-500/10 text-amber-500" },
+    premium: { name: "Premium", icon: Bell, color: "bg-purple-500/10 text-purple-500" },
+  }
 
   useEffect(() => {
-    fetchListings()
+    const stored = localStorage.getItem("subscriptions")
+    if (stored) {
+      setSubscriptions(JSON.parse(stored))
+    }
+
+    fetchSubmissions()
   }, [])
 
-  const fetchListings = async () => {
+  const fetchSubmissions = async () => {
     try {
-      console.log("[v0] ADMIN_FETCH: Starting to fetch listings...")
       const supabase = createClient()
-      
-      console.log("[v0] ADMIN_FETCH: Testing Supabase connection...")
-      const { data: testData, error: testError } = await supabase
-        .from("listings")
-        .select("count", { count: 'exact', head: true })
-      
-      if (testError) {
-        console.error("[v0] ADMIN_FETCH: Connection test failed:", testError)
-      } else {
-        console.log("[v0] ADMIN_FETCH: Connection successful, total rows:", testData)
-      }
-      
-      const { data, error } = await supabase
-        .from("listings")
-        .select("*")
-        .order("submitted_at", { ascending: false })
+      const { data, error } = await supabase.from("listings").select("*").order("submitted_at", { ascending: false })
 
-      console.log("[v0] ADMIN_FETCH: Query completed", {
-        success: !error,
-        count: data?.length || 0,
-        error: error?.message,
-        errorDetails: error,
-        sample: data?.[0] ? {
-          id: data[0].id,
-          title: data[0].title,
-          status: data[0].status,
-          type: data[0].type
-        } : null
-      })
+      if (error) throw error
 
-      if (error) {
-        console.error("[v0] ADMIN_FETCH_ERROR:", error)
-        throw error
-      }
-
-      console.log("[v0] ADMIN_FETCH_SUCCESS:", {
-        total: data?.length || 0,
-        pending: data?.filter(d => d.status === 'pending').length || 0,
-        approved: data?.filter(d => d.status === 'approved').length || 0,
-        rejected: data?.filter(d => d.status === 'rejected').length || 0,
-      })
-
-      setListings(data || [])
-    } catch (error) {
-      console.error("[v0] ADMIN_FETCH_FAILED:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load listings. Check console for details.",
-        variant: "destructive",
-      })
+      setSubmissions(data || [])
+    } catch (err) {
+      console.error("[v0] Failed to fetch submissions:", err)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleApprove = async (listingId: string) => {
-    setActionLoading(listingId)
+  const handleApprove = async (submissionId: string) => {
     try {
       const response = await fetch("/api/admin/approve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ listingId }),
+        body: JSON.stringify({ listingId: submissionId }),
       })
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to approve")
-      }
+      if (!response.ok) throw new Error("Approval failed")
 
-      toast({
-        title: "Approved",
-        description: "Listing has been approved successfully",
-      })
-
-      await fetchListings()
-    } catch (error) {
-      console.error("[v0] Approve error:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to approve listing",
-        variant: "destructive",
-      })
-    } finally {
-      setActionLoading(null)
+      await fetchSubmissions()
+    } catch (err) {
+      console.error("[v0] Approval error:", err)
     }
   }
 
-  const handleRejectClick = (listing: Listing) => {
-    setSelectedListing(listing)
-    setRejectionReason("")
-    setRejectDialogOpen(true)
-  }
-
-  const handleRejectConfirm = async () => {
-    if (!selectedListing) return
-
-    setActionLoading(selectedListing.id)
+  const handleReject = async (submissionId: string, reason?: string) => {
     try {
       const response = await fetch("/api/admin/reject", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          listingId: selectedListing.id,
-          reason: rejectionReason || undefined,
-        }),
+        body: JSON.stringify({ listingId: submissionId, reason }),
       })
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to reject")
-      }
+      if (!response.ok) throw new Error("Rejection failed")
 
-      toast({
-        title: "Rejected",
-        description: "Listing has been rejected",
-      })
-
-      setRejectDialogOpen(false)
-      setSelectedListing(null)
-      await fetchListings()
-    } catch (error) {
-      console.error("[v0] Reject error:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to reject listing",
-        variant: "destructive",
-      })
-    } finally {
-      setActionLoading(null)
+      await fetchSubmissions()
+    } catch (err) {
+      console.error("[v0] Rejection error:", err)
     }
   }
 
-  const pendingListings = listings.filter((l) => l.status === "pending")
-  const approvedListings = listings.filter((l) => l.status === "approved")
-  const rejectedListings = listings.filter((l) => l.status === "rejected")
-
-  const stats = {
-    totalListings: listings.length,
-    pending: pendingListings.length,
-    approved: approvedListings.length,
-    rejected: rejectedListings.length,
+  const handleGrantTrial = (subscriptionId: string) => {
+    const updated = subscriptions.map((sub) => (sub.id === subscriptionId ? { ...sub, isFreeTrial: true } : sub))
+    setSubscriptions(updated)
+    localStorage.setItem("subscriptions", JSON.stringify(updated))
   }
 
-  if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex h-96 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </div>
-    )
+  const handleRevokeTrial = (subscriptionId: string) => {
+    const updated = subscriptions.map((sub) => (sub.id === subscriptionId ? { ...sub, isFreeTrial: false } : sub))
+    setSubscriptions(updated)
+    localStorage.setItem("subscriptions", JSON.stringify(updated))
+  }
+
+  const stats = {
+    totalVenues: 0, // Will be calculated from final tables
+    totalEvents: 0, // Will be calculated from final tables
+    pendingSubmissions: submissions.filter((s) => s.status === "pending").length,
+    approvedToday: submissions.filter(
+      (s) =>
+        s.status === "approved" &&
+        s.reviewed_at &&
+        new Date(s.reviewed_at).toDateString() === new Date().toDateString(),
+    ).length,
+    activeSubscribers: subscriptions.filter((s) => s.status === "active").length,
+    monthlyRevenue: subscriptions.filter((s) => s.status === "active").reduce((sum, s) => sum + s.monthlyPrice, 0),
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
       <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="mb-2 text-4xl font-bold tracking-tight text-foreground">Admin Dashboard</h1>
-            <p className="text-lg text-muted-foreground">Manage and moderate submissions</p>
-          </div>
-          <Button
-            onClick={fetchListings}
-            disabled={loading}
-            variant="outline"
-            size="lg"
-            className="gap-2"
-          >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-            Refresh
-          </Button>
-        </div>
+        <h1 className="text-3xl font-heading font-bold mb-2">Admin Dashboard</h1>
+        <p className="text-muted-foreground">Manage submissions, subscribers, and content</p>
       </div>
 
-      {/* Stats Overview */}
+      {/* Stats Grid */}
       <div className="mb-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Listings</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Venues</CardTitle>
             <MapPin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalListings}</div>
-            <p className="text-xs text-muted-foreground">All submissions</p>
+            <div className="text-2xl font-bold">{stats.totalVenues}</div>
+            <p className="text-xs text-muted-foreground">Active listings</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <AlertCircle className="h-4 w-4 text-amber-500" />
+            <CardTitle className="text-sm font-medium">Total Events</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.pending}</div>
-            <p className="text-xs text-muted-foreground">Awaiting review</p>
+            <div className="text-2xl font-bold">{stats.totalEvents}</div>
+            <p className="text-xs text-muted-foreground">Upcoming events</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Approved</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
+            <CardTitle className="text-sm font-medium">Active Subscribers</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.approved}</div>
-            <p className="text-xs text-muted-foreground">Live listings</p>
+            <div className="text-2xl font-bold">{stats.activeSubscribers}</div>
+            <p className="text-xs text-muted-foreground">Paying businesses</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rejected</CardTitle>
-            <XCircle className="h-4 w-4 text-red-500" />
+            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.rejected}</div>
-            <p className="text-xs text-muted-foreground">Declined</p>
+            <div className="text-2xl font-bold">${stats.monthlyRevenue.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">Recurring revenue</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="pending" className="space-y-6">
+      <Tabs defaultValue="moderation" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="pending" className="gap-2">
+          <TabsTrigger value="moderation" className="gap-2">
             <AlertCircle className="h-4 w-4" />
-            Pending
-            {stats.pending > 0 && (
+            Moderation Queue
+            {stats.pendingSubmissions > 0 && (
               <Badge variant="destructive" className="ml-1 h-5 px-1.5">
-                {stats.pending}
+                {stats.pendingSubmissions}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="approved" className="gap-2">
-            <CheckCircle className="h-4 w-4" />
-            Approved
+          <TabsTrigger value="subscribers" className="gap-2">
+            <CreditCard className="h-4 w-4" />
+            Subscribers
           </TabsTrigger>
-          <TabsTrigger value="rejected" className="gap-2">
-            <XCircle className="h-4 w-4" />
-            Rejected
+          <TabsTrigger value="venues" className="gap-2">
+            <MapPin className="h-4 w-4" />
+            Venues
+          </TabsTrigger>
+          <TabsTrigger value="events" className="gap-2">
+            <Calendar className="h-4 w-4" />
+            Events
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="pending" className="space-y-4">
-          {pendingListings.length === 0 ? (
+        <TabsContent value="moderation" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold">Pending Submissions</h2>
+            <Badge variant="secondary">{stats.pendingSubmissions} pending</Badge>
+          </div>
+
+          {loading ? (
             <Card>
-              <CardContent className="flex h-48 flex-col items-center justify-center gap-3 p-6">
-                <CheckCircle className="h-12 w-12 text-primary" />
-                <p className="text-center text-muted-foreground">All caught up! No pending submissions to review.</p>
-                <Button onClick={() => fetchListings()} variant="outline" size="sm" className="gap-2">
-                  <RefreshCw className="h-4 w-4" />
-                  Refresh
-                </Button>
+              <CardContent className="flex h-48 items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </CardContent>
             </Card>
           ) : (
-            pendingListings.map((listing) => (
-              <Card key={listing.id} className="border-l-4 border-l-amber-500">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <CardTitle className="text-xl">{listing.title}</CardTitle>
-                      <CardDescription className="flex flex-wrap items-center gap-4">
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {listing.city}, {listing.state}
-                        </span>
-                        {listing.organizer_email && (
-                          <span className="flex items-center gap-1">
-                            <Mail className="h-3 w-3" />
-                            {listing.organizer_email}
-                          </span>
-                        )}
-                        <span className="text-xs">
-                          {new Date(listing.submitted_at).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </CardDescription>
-                    </div>
-                    <Badge variant="secondary">{listing.type}</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {listing.images && listing.images.length > 0 && (
-                    <div className="relative aspect-video overflow-hidden rounded-lg">
-                      <img
-                        src={listing.images[0] || "/placeholder.svg"}
-                        alt={listing.title}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  )}
-
-                  <p className="text-sm text-muted-foreground">{listing.description}</p>
-
-                  <div className="space-y-2 text-sm">
-                    <p className="font-medium">Address:</p>
-                    <p className="text-muted-foreground">{listing.address}</p>
-                  </div>
-
-                  {listing.event_date && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>
-                        {new Date(listing.event_date).toLocaleDateString("en-US", {
-                          month: "long",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </span>
-                      {listing.event_start_time && (
-                        <>
-                          <Clock className="h-4 w-4 text-muted-foreground ml-2" />
-                          <span>{listing.event_start_time}</span>
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {listing.website && (
-                    <a
-                      href={listing.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-sm text-primary hover:underline"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      {listing.website}
-                    </a>
-                  )}
-
-                  {listing.phone && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <PhoneIcon className="h-4 w-4 text-muted-foreground" />
-                      <span>{listing.phone}</span>
-                    </div>
-                  )}
-
-                  {listing.sensory_features && Array.isArray(listing.sensory_features) && listing.sensory_features.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {listing.sensory_features.map((feature) => (
-                        <Badge key={feature} variant="outline" className="text-xs">
-                          {feature.replace(/([A-Z])/g, " $1").trim()}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => handleApprove(listing.id)}
-                      disabled={actionLoading === listing.id}
-                      className="flex-1 gap-2"
-                    >
-                      {actionLoading === listing.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <CheckCircle className="h-4 w-4" />
-                      )}
-                      Approve
-                    </Button>
-                    <Button
-                      onClick={() => handleRejectClick(listing)}
-                      disabled={actionLoading === listing.id}
-                      variant="outline"
-                      className="flex-1 gap-2"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      Reject
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </TabsContent>
-
-        <TabsContent value="approved" className="space-y-4">
-          {approvedListings.length === 0 ? (
-            <Card>
-              <CardContent className="flex h-48 flex-col items-center justify-center gap-3 p-6">
-                <MapPin className="h-12 w-12 text-muted-foreground" />
-                <p className="text-center text-muted-foreground">No approved listings yet.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            approvedListings.map((listing) => (
-              <Card key={listing.id} className="border-l-4 border-l-green-500 cursor-pointer hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <CardTitle className="text-xl">{listing.title}</CardTitle>
-                        <Badge variant="secondary">{listing.type}</Badge>
+            <div className="space-y-4">
+              {submissions
+                .filter((s) => s.status === "pending")
+                .map((submission) => (
+                  <Card key={submission.id} className="border-l-4 border-l-accent">
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <CardTitle className="text-xl">{submission.title}</CardTitle>
+                          <CardDescription className="flex items-center gap-4">
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {submission.city}, {submission.state}
+                            </span>
+                            <span className="text-xs">
+                              {new Date(submission.submitted_at).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          </CardDescription>
+                        </div>
+                        <Badge>{submission.type}</Badge>
                       </div>
-                      <CardDescription className="space-y-1">
-                        <div className="flex items-center gap-1 text-sm">
-                          <MapPin className="h-3 w-3" />
-                          {listing.address}
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {submission.images && submission.images.length > 0 && (
+                        <div className="relative aspect-video overflow-hidden rounded-lg">
+                          <img
+                            src={submission.images[0] || "/placeholder.svg"}
+                            alt={submission.title}
+                            className="h-full w-full object-cover"
+                          />
                         </div>
-                        <div className="flex items-center gap-1 text-sm">
-                          {listing.city}, {listing.state} {listing.zip}
-                        </div>
-                        {listing.organizer_email && (
-                          <div className="flex items-center gap-1 text-sm">
-                            <Mail className="h-3 w-3" />
-                            {listing.organizer_email}
-                          </div>
-                        )}
-                      </CardDescription>
-                    </div>
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {listing.images && listing.images.length > 0 && (
-                    <div className="relative aspect-video overflow-hidden rounded-lg">
-                      <img
-                        src={listing.images[0] || "/placeholder.svg"}
-                        alt={listing.title}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  )}
-
-                  <p className="text-sm text-muted-foreground">{listing.description}</p>
-
-                  {listing.event_date && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>
-                        {new Date(listing.event_date).toLocaleDateString("en-US", {
-                          month: "long",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </span>
-                      {listing.event_start_time && (
-                        <>
-                          <Clock className="h-4 w-4 text-muted-foreground ml-2" />
-                          <span>{listing.event_start_time}</span>
-                        </>
                       )}
-                    </div>
-                  )}
 
-                  {listing.website && (
-                    <a
-                      href={listing.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-sm text-primary hover:underline"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      {listing.website}
-                    </a>
-                  )}
+                      <p className="text-sm text-muted-foreground line-clamp-3">{submission.description}</p>
 
-                  {listing.sensory_features && Array.isArray(listing.sensory_features) && listing.sensory_features.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {listing.sensory_features.map((feature) => (
-                        <Badge key={feature} variant="outline" className="text-xs">
-                          {feature.replace(/([A-Z])/g, " $1").trim()}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
+                      {submission.sensory_features && submission.sensory_features.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {submission.sensory_features.map((feature: string) => (
+                            <Badge key={feature} variant="outline" className="text-xs">
+                              {feature}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
 
-                  {listing.reviewed_at && (
-                    <p className="text-xs text-muted-foreground">
-                      Approved on{" "}
-                      {new Date(listing.reviewed_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApprove(submission.id)}
+                          className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                        >
+                          <CheckCircle className="mr-2 inline-block h-4 w-4" />
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleReject(submission.id)}
+                          className="flex-1 rounded-lg border border-border bg-transparent px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                        >
+                          <XCircle className="mr-2 inline-block h-4 w-4" />
+                          Reject
+                        </button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+
+              {stats.pendingSubmissions === 0 && (
+                <Card>
+                  <CardContent className="flex h-48 flex-col items-center justify-center gap-3 p-6">
+                    <CheckCircle className="h-12 w-12 text-primary" />
+                    <p className="text-center text-muted-foreground">
+                      All caught up! No pending submissions to review.
                     </p>
-                  )}
-                </CardContent>
-              </Card>
-            ))
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           )}
         </TabsContent>
 
-        <TabsContent value="rejected" className="space-y-4">
-          {rejectedListings.length === 0 ? (
-            <Card>
-              <CardContent className="flex h-48 flex-col items-center justify-center gap-3 p-6">
-                <XCircle className="h-12 w-12 text-muted-foreground" />
-                <p className="text-center text-muted-foreground">No rejected listings.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            rejectedListings.map((listing) => (
-              <Card key={listing.id} className="border-l-4 border-l-red-500">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold">{listing.title}</h3>
-                        <Badge variant="secondary">{listing.type}</Badge>
+        <TabsContent value="subscribers" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold">Active Subscribers</h2>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground">Monthly Revenue</p>
+                <p className="text-2xl font-bold text-primary">${stats.monthlyRevenue.toFixed(2)}</p>
+              </div>
+              <Badge variant="secondary">{stats.activeSubscribers} active</Badge>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {subscriptions.map((subscription) => {
+              const tier = tierInfo[subscription.tier]
+              const TierIcon = tier.icon
+              return (
+                <Card key={subscription.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-4">
+                        <div
+                          className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                            subscription.status === "active"
+                              ? tier.color
+                              : subscription.status === "cancelled"
+                                ? "bg-muted text-muted-foreground"
+                                : "bg-destructive/10 text-destructive"
+                          }`}
+                        >
+                          <TierIcon className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{subscription.businessName}</p>
+                            {subscription.isFreeTrial && (
+                              <Badge variant="secondary" className="gap-1">
+                                <Gift className="h-3 w-3" />
+                                Free Trial
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {subscription.email} • {tier.name} Tier
+                          </p>
+                          <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                            {subscription.phoneVerified ? (
+                              <span className="flex items-center gap-1 text-primary">
+                                <Phone className="h-3 w-3" />
+                                Verified
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                Not Verified
+                              </span>
+                            )}
+                            {subscription.phoneNumber && <span>{subscription.phoneNumber}</span>}
+                          </div>
+                        </div>
                       </div>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        {listing.city}, {listing.state}
-                      </p>
-                      {listing.reviewed_at && (
-                        <p className="text-xs text-muted-foreground">
-                          Rejected on{" "}
-                          {new Date(listing.reviewed_at).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </p>
-                      )}
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-primary">${subscription.monthlyPrice.toFixed(2)}</p>
+                          <p className="text-xs text-muted-foreground">per month</p>
+                        </div>
+                        <Badge
+                          variant={
+                            subscription.status === "active"
+                              ? "default"
+                              : subscription.status === "cancelled"
+                                ? "secondary"
+                                : "destructive"
+                          }
+                        >
+                          {subscription.status === "active" && <CheckCircle className="mr-1 h-3 w-3" />}
+                          {subscription.status === "cancelled" && <XCircle className="mr-1 h-3 w-3" />}
+                          {subscription.status === "past_due" && <AlertCircle className="mr-1 h-3 w-3" />}
+                          {subscription.status.replace("_", " ").toUpperCase()}
+                        </Badge>
+                        <div className="text-right text-sm">
+                          <p className="text-muted-foreground">Next billing</p>
+                          <p className="font-medium">
+                            {new Date(subscription.nextBillingDate).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <XCircle className="h-5 w-5 text-red-500" />
+                    <div className="mt-4 flex gap-2 border-t border-border pt-4">
+                      {subscription.isFreeTrial ? (
+                        <Button variant="outline" size="sm" onClick={() => handleRevokeTrial(subscription.id)}>
+                          <XCircle className="mr-1 h-3 w-3" />
+                          Revoke Trial
+                        </Button>
+                      ) : (
+                        <Button variant="outline" size="sm" onClick={() => handleGrantTrial(subscription.id)}>
+                          <Gift className="mr-1 h-3 w-3" />
+                          Grant Trial
+                        </Button>
+                      )}
+                      <Button variant="outline" size="sm">
+                        <Shield className="mr-1 h-3 w-3" />
+                        Whitelist Domain
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+
+            {subscriptions.length === 0 && (
+              <Card>
+                <CardContent className="flex h-48 flex-col items-center justify-center gap-3 p-6">
+                  <CreditCard className="h-12 w-12 text-muted-foreground" />
+                  <p className="text-center text-muted-foreground">No subscribers yet.</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="venues" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold">All Venues</h2>
+            <Badge variant="secondary">{mockVenues.length} total</Badge>
+          </div>
+
+          <div className="space-y-3">
+            {mockVenues.map((venue) => (
+              <Card key={venue.id}>
+                <CardContent className="flex items-center justify-between p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="relative h-16 w-16 overflow-hidden rounded-lg">
+                      <img
+                        src={venue.imageUrl || "/placeholder.svg"}
+                        alt={venue.name}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div>
+                      <p className="font-medium">{venue.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {venue.category} • {venue.city}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-sm font-medium">{venue.rating} ★</p>
+                      <p className="text-xs text-muted-foreground">{venue.reviewCount} reviews</p>
+                    </div>
+                    <button className="rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted">
+                      Edit
+                    </button>
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="events" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold">All Events</h2>
+            <Badge variant="secondary">{mockEvents.length} upcoming</Badge>
+          </div>
+
+          <div className="space-y-3">
+            {mockEvents.map((event) => (
+              <Card key={event.id}>
+                <CardContent className="flex items-center justify-between p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="relative h-16 w-16 overflow-hidden rounded-lg">
+                      <img
+                        src={event.imageUrl || "/placeholder.svg"}
+                        alt={event.name}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div>
+                      <p className="font-medium">{event.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {event.venueName} •{" "}
+                        {new Date(event.date).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-sm font-medium">{event.crowdLevel || "Not specified"}</p>
+                      <p className="text-xs text-muted-foreground">crowd level</p>
+                    </div>
+                    <button className="rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted">
+                      Edit
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </TabsContent>
       </Tabs>
-
-      {/* Reject Dialog */}
-      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject Submission</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to reject "{selectedListing?.title}"? You can optionally provide a reason.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="reason">Reason (optional)</Label>
-            <Textarea
-              id="reason"
-              placeholder="Explain why this submission is being rejected..."
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              rows={4}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleRejectConfirm} disabled={!!actionLoading}>
-              {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Reject Submission
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

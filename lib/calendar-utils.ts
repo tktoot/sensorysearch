@@ -118,7 +118,7 @@ export async function generateIcs(event: CalendarEvent, addReminder = false): Pr
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",
-    `UID:${event.title.replace(/\s+/g, "-")}-${startDate.getTime()}@calmseek.com`,
+    `UID:${event.title.replace(/\s+/g, "-")}-${startDate.getTime()}@sensorysearch.com`,
     `DTSTAMP:${dtstamp}`,
     `DTSTART:${formatIcsDate(startDate)}`,
     `DTEND:${formatIcsDate(endDate)}`,
@@ -128,7 +128,7 @@ export async function generateIcs(event: CalendarEvent, addReminder = false): Pr
   ]
 
   if (event.organizerName) {
-    icsContent.push(`ORGANIZER;CN=${event.organizerName}:mailto:${event.organizerName}@calmseek.com`)
+    icsContent.push(`ORGANIZER;CN=${event.organizerName}:mailto:${event.organizerName}@sensorysearch.com`)
   }
 
   if (addReminder) {

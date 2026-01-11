@@ -63,8 +63,8 @@ export default function ContactPage() {
           <CardDescription>For immediate assistance, reach out to our support team</CardDescription>
         </CardHeader>
         <CardContent>
-          <a href="mailto:support@sensorysearch.app" className="text-lg text-primary hover:underline font-medium">
-            support@sensorysearch.app
+          <a href="mailto:contact@sensorysearch.com" className="text-lg text-primary hover:underline font-medium">
+            contact@sensorysearch.com
           </a>
         </CardContent>
       </Card>

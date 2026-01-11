@@ -2,24 +2,28 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
-import { PhotoUploader } from "@/components/photo-uploader"
+import { ImageUpload } from "@/components/image-upload"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { isValidUrl, normalizeUrl } from "@/lib/url-utils"
+import { checkSubmissionAccess } from "@/lib/submission-guard"
+import { SensoryAccessibilitySection } from "@/components/submission-forms/sensory-accessibility-section"
+import { ParkSpecificSection } from "@/components/submission-forms/park-specific-section"
+import type { NoiseLevel, LightingLevel, CrowdLevel, DensityLevel } from "@/lib/constants/sensory-fields"
 
 export default function SubmitParkPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [submitting, setSubmitting] = useState(false)
+  const [checking, setChecking] = useState(true)
   const [images, setImages] = useState<string[]>([])
   const [formData, setFormData] = useState({
     title: "",
@@ -32,22 +36,53 @@ export default function SubmitParkPage() {
     website: "",
     contactEmail: "",
     phone: "",
-    lowNoise: false,
-    gentleLighting: false,
-    crowdManaged: false,
-    quietRoom: false,
-    visualAids: false,
+    noiseLevel: "" as NoiseLevel | "",
+    lightingLevel: "" as LightingLevel | "",
+    crowdLevel: "" as CrowdLevel | "",
+    densityLevel: "" as DensityLevel | "",
+    wheelchairAccessible: false,
+    accessibleParking: false,
+    accessibleRestroom: false,
+    quietSpaceAvailable: false,
+    sensoryFriendlyHours: false,
+    headphonesAllowed: false,
+    staffTrained: false,
+    fencingType: "",
+    petsAllowed: false,
+    dogsOnLeash: false,
+    noPets: false,
+    shadedAreas: false,
+    benchesSeating: false,
+    softGround: false,
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    checkAccess()
+  }, [])
+
+  const checkAccess = async () => {
+    const result = await checkSubmissionAccess("/organizer/submit/park")
+    if (!result.allowed && result.redirect) {
+      router.push(result.redirect)
+    } else {
+      setChecking(false)
+    }
+  }
+
+  if (checking) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrors({})
 
-    console.log("[v0] PARK_SUBMIT: Starting submission...")
-
-    // Validation
     const newErrors: Record<string, string> = {}
     if (!formData.title.trim()) newErrors.title = "Title is required"
     if (!formData.description.trim()) newErrors.description = "Description is required"
@@ -57,12 +92,15 @@ export default function SubmitParkPage() {
     if (!formData.city.trim()) newErrors.city = "City is required"
     if (!formData.state.trim()) newErrors.state = "State is required"
     if (!formData.zip.trim()) newErrors.zip = "ZIP code is required"
+    if (!formData.noiseLevel) newErrors.noiseLevel = "Noise level is required"
+    if (!formData.lightingLevel) newErrors.lightingLevel = "Lighting level is required"
+    if (!formData.crowdLevel) newErrors.crowdLevel = "Crowd level is required"
+    if (!formData.densityLevel) newErrors.densityLevel = "Density level is required"
     if (formData.website && !isValidUrl(formData.website)) {
       newErrors.website = "Please enter a valid URL (e.g., example.com or https://example.com)"
     }
 
     if (Object.keys(newErrors).length > 0) {
-      console.log("[v0] PARK_SUBMIT: Validation errors", newErrors)
       setErrors(newErrors)
       toast({
         title: "Validation Error",
@@ -72,56 +110,59 @@ export default function SubmitParkPage() {
       return
     }
 
-    console.log("[v0] PARK_SUBMIT: Validation passed, submitting to API...")
     setSubmitting(true)
 
     try {
-      const payload = {
-        type: "park",
-        title: formData.title,
-        description: formData.description,
-        address: {
-          street: formData.street,
-          city: formData.city,
-          state: formData.state,
-          zip: formData.zip,
-        },
-        hours: formData.hours,
-        website: formData.website ? normalizeUrl(formData.website) : "",
-        contactEmail: formData.contactEmail,
-        phone: formData.phone,
-        sensoryAttributes: {
-          lowNoise: formData.lowNoise,
-          gentleLighting: formData.gentleLighting,
-          crowdManaged: formData.crowdManaged,
-          quietRoom: formData.quietRoom,
-          visualAids: formData.visualAids,
-        },
-        images,
-      }
-
-      console.log("[v0] PARK_SUBMIT: Payload prepared", {
-        type: payload.type,
-        title: payload.title,
-        imageCount: payload.images.length,
-      })
-
       const response = await fetch("/api/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          type: "park",
+          title: formData.title,
+          description: formData.description,
+          address: {
+            street: formData.street,
+            city: formData.city,
+            state: formData.state,
+            zip: formData.zip,
+          },
+          hours: formData.hours,
+          website: formData.website ? normalizeUrl(formData.website) : "",
+          contactEmail: formData.contactEmail,
+          phone: formData.phone,
+          sensory: {
+            noiseLevel: formData.noiseLevel,
+            lightingLevel: formData.lightingLevel,
+            crowdLevel: formData.crowdLevel,
+            densityLevel: formData.densityLevel,
+          },
+          accessibility: {
+            wheelchairAccessible: formData.wheelchairAccessible,
+            accessibleParking: formData.accessibleParking,
+            accessibleRestroom: formData.accessibleRestroom,
+          },
+          sensorySupports: {
+            quietSpaceAvailable: formData.quietSpaceAvailable,
+            sensoryFriendlyHours: formData.sensoryFriendlyHours,
+            headphonesAllowed: formData.headphonesAllowed,
+            staffTrained: formData.staffTrained,
+          },
+          parkDetails: {
+            fencingType: formData.fencingType,
+            petsAllowed: formData.petsAllowed,
+            dogsOnLeash: formData.dogsOnLeash,
+            noPets: formData.noPets,
+            shadedAreas: formData.shadedAreas,
+            benchesSeating: formData.benchesSeating,
+            softGround: formData.softGround,
+          },
+          images,
+        }),
       })
 
-      console.log("[v0] PARK_SUBMIT: API response status", response.status)
-
       if (!response.ok) {
-        const errorData = await response.json()
-        console.error("[v0] PARK_SUBMIT: API error", errorData)
-        throw new Error(errorData.error || "Submission failed")
+        throw new Error("Submission failed")
       }
-
-      const result = await response.json()
-      console.log("[v0] PARK_SUBMIT: Success!", result)
 
       toast({
         title: "Submitted for Review",
@@ -130,10 +171,10 @@ export default function SubmitParkPage() {
 
       router.push("/organizer")
     } catch (error) {
-      console.error("[v0] PARK_SUBMIT: Error", error)
+      console.error("[v0] Submission error:", error)
       toast({
         title: "Submission Failed",
-        description: error instanceof Error ? error.message : "Please try again later",
+        description: "Please try again later",
         variant: "destructive",
       })
     } finally {
@@ -142,11 +183,11 @@ export default function SubmitParkPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl">
+    <div className="container mx-auto px-4 py-8 max-w-3xl pb-24">
       <Button asChild variant="ghost" className="mb-6 gap-2">
-        <Link href="/organizer">
+        <Link href="/submit">
           <ArrowLeft className="h-4 w-4" />
-          Back to Dashboard
+          Back to Submit Options
         </Link>
       </Button>
 
@@ -282,63 +323,50 @@ export default function SubmitParkPage() {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <Label>Sensory Attributes</Label>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="lowNoise"
-                    checked={formData.lowNoise}
-                    onCheckedChange={(checked) => setFormData({ ...formData, lowNoise: checked as boolean })}
-                  />
-                  <label htmlFor="lowNoise" className="text-sm cursor-pointer">
-                    Low Noise Environment
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="gentleLighting"
-                    checked={formData.gentleLighting}
-                    onCheckedChange={(checked) => setFormData({ ...formData, gentleLighting: checked as boolean })}
-                  />
-                  <label htmlFor="gentleLighting" className="text-sm cursor-pointer">
-                    Gentle Lighting
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="crowdManaged"
-                    checked={formData.crowdManaged}
-                    onCheckedChange={(checked) => setFormData({ ...formData, crowdManaged: checked as boolean })}
-                  />
-                  <label htmlFor="crowdManaged" className="text-sm cursor-pointer">
-                    Crowd Managed
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="quietRoom"
-                    checked={formData.quietRoom}
-                    onCheckedChange={(checked) => setFormData({ ...formData, quietRoom: checked as boolean })}
-                  />
-                  <label htmlFor="quietRoom" className="text-sm cursor-pointer">
-                    Quiet Room Available
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="visualAids"
-                    checked={formData.visualAids}
-                    onCheckedChange={(checked) => setFormData({ ...formData, visualAids: checked as boolean })}
-                  />
-                  <label htmlFor="visualAids" className="text-sm cursor-pointer">
-                    Visual Aids Provided
-                  </label>
-                </div>
-              </div>
-            </div>
+            <ImageUpload images={images} onChange={setImages} />
 
-            <PhotoUploader images={images} onChange={setImages} entityType="park" maxFiles={6} maxSizeMB={5} />
+            <SensoryAccessibilitySection
+              noiseLevel={formData.noiseLevel}
+              lightingLevel={formData.lightingLevel}
+              crowdLevel={formData.crowdLevel}
+              densityLevel={formData.densityLevel}
+              wheelchairAccessible={formData.wheelchairAccessible}
+              accessibleParking={formData.accessibleParking}
+              accessibleRestroom={formData.accessibleRestroom}
+              quietSpaceAvailable={formData.quietSpaceAvailable}
+              sensoryFriendlyHours={formData.sensoryFriendlyHours}
+              headphonesAllowed={formData.headphonesAllowed}
+              staffTrained={formData.staffTrained}
+              onNoiseChange={(value) => setFormData({ ...formData, noiseLevel: value })}
+              onLightingChange={(value) => setFormData({ ...formData, lightingLevel: value })}
+              onCrowdChange={(value) => setFormData({ ...formData, crowdLevel: value })}
+              onDensityChange={(value) => setFormData({ ...formData, densityLevel: value })}
+              onWheelchairChange={(checked) => setFormData({ ...formData, wheelchairAccessible: checked })}
+              onAccessibleParkingChange={(checked) => setFormData({ ...formData, accessibleParking: checked })}
+              onAccessibleRestroomChange={(checked) => setFormData({ ...formData, accessibleRestroom: checked })}
+              onQuietSpaceChange={(checked) => setFormData({ ...formData, quietSpaceAvailable: checked })}
+              onSensoryHoursChange={(checked) => setFormData({ ...formData, sensoryFriendlyHours: checked })}
+              onHeadphonesChange={(checked) => setFormData({ ...formData, headphonesAllowed: checked })}
+              onStaffTrainedChange={(checked) => setFormData({ ...formData, staffTrained: checked })}
+              errors={errors}
+            />
+
+            <ParkSpecificSection
+              fencingType={formData.fencingType}
+              petsAllowed={formData.petsAllowed}
+              dogsOnLeash={formData.dogsOnLeash}
+              noPets={formData.noPets}
+              shadedAreas={formData.shadedAreas}
+              benchesSeating={formData.benchesSeating}
+              softGround={formData.softGround}
+              onFencingChange={(value) => setFormData({ ...formData, fencingType: value })}
+              onPetsAllowedChange={(checked) => setFormData({ ...formData, petsAllowed: checked })}
+              onDogsOnLeashChange={(checked) => setFormData({ ...formData, dogsOnLeash: checked })}
+              onNoPetsChange={(checked) => setFormData({ ...formData, noPets: checked })}
+              onShadedAreasChange={(checked) => setFormData({ ...formData, shadedAreas: checked })}
+              onBenchesSeatingChange={(checked) => setFormData({ ...formData, benchesSeating: checked })}
+              onSoftGroundChange={(checked) => setFormData({ ...formData, softGround: checked })}
+            />
 
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? (

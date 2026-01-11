@@ -70,7 +70,7 @@ export class ProfileErrorBoundary extends Component<Props, State> {
               <div className="text-center">
                 <p className="text-sm text-muted-foreground">
                   Still having issues?{" "}
-                  <a href="mailto:support@calmseek.com" className="text-primary hover:underline">
+                  <a href="mailto:contact@sensorysearch.com" className="text-primary hover:underline">
                     Contact Support
                   </a>
                 </p>
