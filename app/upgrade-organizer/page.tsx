@@ -40,9 +40,7 @@ export default function UpgradeOrganizerPage() {
   const isFormValid = businessName.trim() !== "" && email.trim() !== "" && isValidEmail(email)
 
   useEffect(() => {
-    console.log("[v0] UPGRADE_START - User landed on upgrade page", {
-      next: nextPath,
-    })
+    console.log("[v0] UPGRADE_PAGE: Loaded", { next: nextPath })
   }, [nextPath])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,11 +57,12 @@ export default function UpgradeOrganizerPage() {
     setLoading(true)
 
     try {
-      console.log("[v0] Calling POST /api/upgrade-organizer", { businessName, email })
+      console.log("[v0] UPGRADE_PAGE: Submitting", { businessName, email })
 
       const response = await fetch("/api/upgrade-organizer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ businessName, email }),
       })
 
@@ -72,24 +71,24 @@ export default function UpgradeOrganizerPage() {
       try {
         responseData = JSON.parse(responseText)
       } catch {
-        console.error("[v0] Server returned non-JSON response:", response.status, responseText)
+        console.error("[v0] UPGRADE_PAGE: Non-JSON response", response.status, responseText)
         setError(`Server error (${response.status}). Please try again.`)
         setLoading(false)
         return
       }
 
       if (!response.ok) {
-        console.error("[v0] UPGRADE_ERROR:", response.status, responseData)
+        console.error("[v0] UPGRADE_PAGE: Upgrade failed", response.status, responseData)
         setError(responseData.error || `Failed to create organizer account (${response.status})`)
         setLoading(false)
         return
       }
 
-      console.log("[v0] UPGRADE_SUCCESS - Redirecting to:", nextPath)
+      console.log("[v0] UPGRADE_PAGE: SUCCESS - Redirecting to", nextPath)
 
       router.replace(nextPath)
     } catch (err: any) {
-      console.error("[v0] UPGRADE_ERROR - Unexpected exception:", err)
+      console.error("[v0] UPGRADE_PAGE: Unexpected error", err)
       setError(err?.message || "An unexpected error occurred. Please try again.")
       setLoading(false)
     }

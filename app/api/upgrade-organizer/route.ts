@@ -11,22 +11,29 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (!user || authError) {
-      console.error("[v0] UPGRADE_ERROR: No authenticated user", authError)
-      return Response.json({ error: "Not authenticated. Please sign in." }, { status: 401 })
+      console.error("[v0] UPGRADE_API: Not authenticated", authError)
+      return Response.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    console.log("[v0] UPGRADE_START: User", user.id, user.email)
+    console.log("[v0] UPGRADE_API: User authenticated", user.id, user.email)
 
     const body = await request.json()
     const businessName = body.businessName?.trim()
     const email = body.email?.trim()
 
-    if (!businessName || !email) {
-      console.error("[v0] UPGRADE_ERROR: Missing required fields")
-      return Response.json({ error: "Business name and email are required" }, { status: 400 })
+    if (!businessName) {
+      return Response.json({ error: "Business name is required" }, { status: 400 })
     }
 
-    console.log("[v0] UPGRADE_DETAILS:", { businessName, email })
+    if (!email) {
+      return Response.json({ error: "Email is required" }, { status: 400 })
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return Response.json({ error: "Invalid email format" }, { status: 400 })
+    }
+
+    console.log("[v0] UPGRADE_API: Input validated", { businessName, email })
 
     const { error: roleError } = await supabase
       .from("users")
@@ -37,22 +44,19 @@ export async function POST(request: NextRequest) {
       .eq("id", user.id)
 
     if (roleError) {
-      console.error("[v0] UPGRADE_ERROR: Failed to update user role", roleError)
+      console.error("[v0] UPGRADE_API: Failed to update role", roleError)
       return Response.json(
         {
           error: "Failed to update user role",
-          supabase: {
-            code: roleError.code,
-            message: roleError.message,
-            details: roleError.details,
-            hint: roleError.hint,
-          },
+          details: roleError.message,
+          code: roleError.code,
+          hint: roleError.hint,
         },
         { status: 500 },
       )
     }
 
-    console.log("[v0] ROLE_UPDATE: User role set to organizer")
+    console.log("[v0] UPGRADE_API: User role updated to organizer")
 
     const trialEndsAt = new Date()
     trialEndsAt.setMonth(trialEndsAt.getMonth() + 3)
@@ -69,32 +73,24 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       },
       {
-        onConflict: "user_id", // Upsert on conflict with user_id
+        onConflict: "user_id",
       },
     )
 
     if (profileError) {
-      console.error("[v0] UPGRADE_ERROR: Failed to upsert organizer_profiles", profileError)
+      console.error("[v0] UPGRADE_API: Failed to create organizer profile", profileError)
       return Response.json(
         {
-          error: "Organizer upgrade failed",
-          supabase: {
-            code: profileError.code,
-            message: profileError.message,
-            details: profileError.details,
-            hint: profileError.hint,
-          },
+          error: "Failed to create organizer profile",
+          details: profileError.message,
+          code: profileError.code,
+          hint: profileError.hint,
         },
         { status: 500 },
       )
     }
 
-    console.log("[v0] UPGRADE_SUCCESS:", {
-      userId: user.id,
-      email: user.email,
-      businessName,
-      trialEndsAt: trialEndsAt.toISOString(),
-    })
+    console.log("[v0] UPGRADE_API: SUCCESS - Organizer profile created/updated")
 
     return Response.json(
       {
@@ -105,7 +101,7 @@ export async function POST(request: NextRequest) {
       { status: 200 },
     )
   } catch (error: any) {
-    console.error("[v0] UPGRADE_ERROR: Unexpected exception", error)
+    console.error("[v0] UPGRADE_API: Unexpected error", error)
     return Response.json(
       {
         error: "Internal server error",

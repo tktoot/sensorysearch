@@ -24,9 +24,10 @@ function ProfilePageContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [userRole, setUserRole] = useState<string>("user")
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [isOrganizer, setIsOrganizer] = useState(false)
 
   useEffect(() => {
-    console.log("[v0] PROFILE_LOAD_START - Loading profile page")
+    console.log("[v0] PROFILE: Loading profile page")
 
     const checkAuth = async () => {
       const supabase = createClient()
@@ -41,16 +42,26 @@ function ProfilePageContent() {
         const { data: userData } = await supabase.from("users").select("role").eq("id", session.user.id).single()
         const role = userData?.role || "user"
         setUserRole(role)
-        console.log("[v0] Current user role:", role)
+        console.log("[v0] PROFILE: User role", role)
 
-        const { data: profileData } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+        const { data: organizerData } = await supabase
+          .from("organizer_profiles")
+          .select("user_id")
+          .eq("user_id", session.user.id)
+          .maybeSingle()
+
+        const hasOrganizerProfile = !!organizerData
+        setIsOrganizer(hasOrganizerProfile || role === "admin")
+        console.log("[v0] PROFILE: Is organizer", hasOrganizerProfile, "Has organizer profile:", !!organizerData)
+
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .maybeSingle()
 
         if (profileData) {
-          console.log("[v0] Loaded profile from database", { profile: profileData })
           setProfile(profileData)
-        } else {
-          console.log("[v0] No profile found for user")
-          setProfile(null)
         }
 
         const { count } = await supabase
@@ -59,14 +70,12 @@ function ProfilePageContent() {
           .eq("user_id", session.user.id)
 
         setFavoriteCount(count || 0)
-        console.log("[v0] Loaded favorite count:", count)
       } else {
-        console.log("[v0] No auth session, redirecting to intro")
+        console.log("[v0] PROFILE: No session, redirecting to intro")
         router.push("/intro?next=/profile")
         return
       }
 
-      console.log("[v0] PROFILE_LOAD_OK - Profile loaded successfully")
       setIsLoading(false)
     }
 
@@ -74,39 +83,20 @@ function ProfilePageContent() {
   }, [router])
 
   const handleUpgradeClick = async () => {
-    console.log("[v0] CLICK_UPGRADE - User clicked upgrade to organizer")
+    console.log("[v0] PROFILE: Upgrade button clicked")
 
-    if (isAuthenticated) {
-      try {
-        const response = await fetch("/api/upgrade-organizer", {
-          method: "POST",
-        })
+    const supabase = createClient()
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
 
-        if (!response.ok) {
-          throw new Error("Upgrade failed")
-        }
-
-        const data = await response.json()
-
-        toast({
-          title: "Upgraded to Organizer!",
-          description: `You now have access to organizer tools. Your 3-month free trial ends ${new Date(data.trialEndsAt).toLocaleDateString()}.`,
-        })
-
-        setUserRole("organizer")
-
-        router.push("/submit")
-      } catch (error) {
-        console.error("[v0] Upgrade error:", error)
-        toast({
-          title: "Upgrade Failed",
-          description: "Please try again later",
-          variant: "destructive",
-        })
-      }
-    } else {
-      router.push("/intro")
+    if (!session) {
+      console.log("[v0] PROFILE: Not authenticated, redirecting to intro")
+      router.push("/intro?next=/upgrade-organizer")
+      return
     }
+
+    router.push("/upgrade-organizer?next=/submit")
   }
 
   const handleSignOut = async () => {
@@ -152,8 +142,6 @@ function ProfilePageContent() {
 
   const firstName = "Friend"
   const initials = userEmail ? userEmail[0].toUpperCase() : "U"
-
-  const isOrganizer = userRole === "organizer" || userRole === "admin"
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-background to-muted/20">
@@ -294,7 +282,7 @@ function ProfilePageContent() {
                     <Briefcase className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-foreground">Organizer Tools</h3>
+                    <h3 className="text-sm font-semibold text-foreground">Become an Organizer</h3>
                     <p className="text-xs text-muted-foreground">List your venue or event</p>
                   </div>
                   <ArrowRight className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
