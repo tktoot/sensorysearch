@@ -224,11 +224,11 @@ export async function checkOrganizerRole(): Promise<boolean> {
 
 /**
  * Upgrade user to organizer role via API
- * Improved error handling to always parse response safely
+ * NO PROFILE DEPENDENCY - only auth session required
  */
-export async function upgradeToOrganizer(businessName?: string, contactEmail?: string): Promise<boolean> {
+export async function upgradeToOrganizer(businessName: string, contactEmail: string): Promise<boolean> {
   try {
-    console.log("[v0] Calling upgrade API with business details", { businessName, contactEmail })
+    console.log("[v0] Calling POST /api/upgrade-organizer", { businessName, contactEmail })
 
     const response = await fetch("/api/upgrade-organizer", {
       method: "POST",
@@ -236,25 +236,29 @@ export async function upgradeToOrganizer(businessName?: string, contactEmail?: s
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        businessName: businessName || "",
-        email: contactEmail || "",
+        businessName,
+        email: contactEmail,
       }),
     })
 
-    if (!response.ok) {
-      const raw = await response.text()
-      let parsed
-      try {
-        parsed = JSON.parse(raw)
-      } catch {
-        // If response is not JSON, use raw text
-      }
-      console.error("[v0] Failed to upgrade to organizer:", response.status, parsed ?? raw)
+    const responseText = await response.text()
+    console.log("[v0] API response status:", response.status)
+    console.log("[v0] API response body:", responseText)
+
+    let responseData
+    try {
+      responseData = JSON.parse(responseText)
+    } catch (parseError) {
+      console.error("[v0] Failed to parse response as JSON:", responseText)
       return false
     }
 
-    const data = await response.json()
-    console.log("[v0] User upgraded to organizer successfully", data)
+    if (!response.ok) {
+      console.error("[v0] Failed to upgrade to organizer:", response.status, responseData)
+      return false
+    }
+
+    console.log("[v0] User upgraded to organizer successfully", responseData)
     return true
   } catch (error: any) {
     console.error("[v0] upgradeToOrganizer error:", error?.message || error)

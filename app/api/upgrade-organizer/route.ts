@@ -5,7 +5,6 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
 
-    // Get authenticated user
     const {
       data: { user },
       error: authError,
@@ -13,19 +12,22 @@ export async function POST(request: NextRequest) {
 
     if (!user || authError) {
       console.error("[v0] UPGRADE_ERROR: No authenticated user", authError)
-      return Response.json({ error: "Not authenticated" }, { status: 401 })
+      return Response.json({ error: "Not authenticated. Please sign in." }, { status: 401 })
     }
 
     console.log("[v0] UPGRADE_START: User", user.id, user.email)
 
-    // Parse request body
     const body = await request.json()
-    const businessName = body.businessName || body.business_name || ""
-    const email = body.email || body.contact_email || user.email || ""
+    const businessName = body.businessName?.trim()
+    const email = body.email?.trim()
+
+    if (!businessName || !email) {
+      console.error("[v0] UPGRADE_ERROR: Missing required fields")
+      return Response.json({ error: "Business name and email are required" }, { status: 400 })
+    }
 
     console.log("[v0] UPGRADE_DETAILS:", { businessName, email })
 
-    // Step 1: Update user role to organizer (idempotent)
     const { error: roleError } = await supabase
       .from("users")
       .update({
@@ -39,7 +41,12 @@ export async function POST(request: NextRequest) {
       return Response.json(
         {
           error: "Failed to update user role",
-          details: roleError.message,
+          supabase: {
+            code: roleError.code,
+            message: roleError.message,
+            details: roleError.details,
+            hint: roleError.hint,
+          },
         },
         { status: 500 },
       )
@@ -47,14 +54,13 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] ROLE_UPDATE: User role set to organizer")
 
-    // Step 2: Upsert organizer_profiles entry (idempotent)
     const trialEndsAt = new Date()
     trialEndsAt.setMonth(trialEndsAt.getMonth() + 3)
 
     const { error: profileError } = await supabase.from("organizer_profiles").upsert(
       {
         user_id: user.id,
-        business_name: businessName || null,
+        business_name: businessName,
         email: email,
         trial_started_at: new Date().toISOString(),
         trial_ends_at: trialEndsAt.toISOString(),
@@ -63,7 +69,7 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       },
       {
-        onConflict: "user_id",
+        onConflict: "user_id", // Upsert on conflict with user_id
       },
     )
 
@@ -71,8 +77,13 @@ export async function POST(request: NextRequest) {
       console.error("[v0] UPGRADE_ERROR: Failed to upsert organizer_profiles", profileError)
       return Response.json(
         {
-          error: "Failed to create organizer profile",
-          details: profileError.message,
+          error: "Organizer upgrade failed",
+          supabase: {
+            code: profileError.code,
+            message: profileError.message,
+            details: profileError.details,
+            hint: profileError.hint,
+          },
         },
         { status: 500 },
       )
@@ -88,8 +99,7 @@ export async function POST(request: NextRequest) {
     return Response.json(
       {
         ok: true,
-        success: true,
-        message: "Upgraded to organizer",
+        message: "Successfully upgraded to organizer",
         trialEndsAt: trialEndsAt.toISOString(),
       },
       { status: 200 },
