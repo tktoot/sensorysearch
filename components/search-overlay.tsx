@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect, useRef, useCallback } from "react"
 import { X, Search, Calendar, MapPin, ChevronRight } from "lucide-react"
 import { Input } from "@/components/ui/input"
@@ -9,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { mockEvents, mockVenues } from "@/lib/mock-data"
+import { createBrowserClient } from "@/lib/supabase-browser-client"
 
 interface SearchOverlayProps {
   open: boolean
@@ -37,7 +36,7 @@ export function SearchOverlay({ open, onOpenChange, initialQuery = "", initialTy
   const router = useRouter()
   const debounceTimerRef = useRef<NodeJS.Timeout>()
 
-  const performSearch = useCallback((searchQuery: string, type: "all" | "events" | "venues") => {
+  const performSearch = useCallback(async (searchQuery: string, type: "all" | "events" | "venues") => {
     if (searchQuery.length < 2) {
       setResults([])
       setIsSearching(false)
@@ -50,51 +49,62 @@ export function SearchOverlay({ open, onOpenChange, initialQuery = "", initialTy
     const lowerQuery = searchQuery.toLowerCase()
     const searchResults: SearchResult[] = []
 
-    // Search events
-    if (type === "all" || type === "events") {
-      const matchingEvents = mockEvents.filter(
-        (event) =>
-          event.name.toLowerCase().includes(lowerQuery) ||
-          event.venueName.toLowerCase().includes(lowerQuery) ||
-          event.description.toLowerCase().includes(lowerQuery) ||
-          event.tags.some((tag) => tag.toLowerCase().includes(lowerQuery)),
+    try {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       )
 
-      searchResults.push(
-        ...matchingEvents.map((event) => ({
-          id: event.id,
-          title: event.name,
-          subtitle: `${new Date(event.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })} • ${event.venueName}`,
-          type: "event" as const,
-          href: `/event/${event.id}`,
-        })),
-      )
+      // Search events
+      if (type === "all" || type === "events") {
+        const { data: eventsData } = await supabase
+          .from("events")
+          .select("*")
+          .or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,venue_name.ilike.%${searchQuery}%`)
+          .limit(10)
+
+        if (eventsData) {
+          searchResults.push(
+            ...eventsData.map((event: any) => ({
+              id: event.id,
+              title: event.name,
+              subtitle: `${new Date(event.event_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })} • ${event.venue_name || event.address}`,
+              type: "event" as const,
+              href: `/event/${event.id}`,
+            })),
+          )
+        }
+      }
+
+      // Search venues
+      if (type === "all" || type === "venues") {
+        const { data: venuesData } = await supabase
+          .from("venues")
+          .select("*")
+          .or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,category.ilike.%${searchQuery}%`)
+          .limit(10)
+
+        if (venuesData) {
+          searchResults.push(
+            ...venuesData.map((venue: any) => ({
+              id: venue.id,
+              title: venue.name,
+              subtitle: `${venue.category || "Venue"} • ${venue.city}`,
+              type: "venue" as const,
+              href: `/venue/${venue.id}`,
+            })),
+          )
+        }
+      }
+
+      setResults(searchResults)
+      setSelectedIndex(0)
+    } catch (error) {
+      console.error("[v0] Search error:", error)
+      setResults([])
+    } finally {
+      setIsSearching(false)
     }
-
-    // Search venues
-    if (type === "all" || type === "venues") {
-      const matchingVenues = mockVenues.filter(
-        (venue) =>
-          venue.name.toLowerCase().includes(lowerQuery) ||
-          venue.description.toLowerCase().includes(lowerQuery) ||
-          venue.category.toLowerCase().includes(lowerQuery) ||
-          venue.tags.some((tag) => tag.toLowerCase().includes(lowerQuery)),
-      )
-
-      searchResults.push(
-        ...matchingVenues.map((venue) => ({
-          id: venue.id,
-          title: venue.name,
-          subtitle: `${venue.category} • ${venue.city}`,
-          type: "venue" as const,
-          href: `/venue/${venue.id}`,
-        })),
-      )
-    }
-
-    setResults(searchResults)
-    setSelectedIndex(0)
-    setIsSearching(false)
   }, [])
 
   useEffect(() => {

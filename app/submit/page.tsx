@@ -2,8 +2,9 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Calendar, Building2, ArrowRight, TreePine, Church } from "lucide-react"
+import { Calendar, Building2, ArrowRight, TreePine, Church, AlertCircle } from "lucide-react"
 import Link from "next/link"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default async function SubmitPage() {
   const supabase = await createClient()
@@ -20,10 +21,7 @@ export default async function SubmitPage() {
 
   console.log("[v0] Submit page: User role:", userData?.role)
 
-  if (userData?.role !== "organizer" && userData?.role !== "admin") {
-    console.log("[v0] Submit page: User is not organizer, redirecting to upgrade")
-    redirect("/upgrade-organizer?next=/submit")
-  }
+  const isOrganizer = userData?.role === "organizer" || userData?.role === "admin"
 
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8">
@@ -31,6 +29,19 @@ export default async function SubmitPage() {
         <h1 className="mb-2 text-3xl font-bold">What would you like to submit?</h1>
         <p className="text-muted-foreground">Choose the type of listing you want to create</p>
       </div>
+
+      {!isOrganizer && (
+        <Alert className="mb-6 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <AlertTitle className="text-amber-900 dark:text-amber-100">Organizer Account Required</AlertTitle>
+          <AlertDescription className="text-amber-800 dark:text-amber-200">
+            To submit listings, you need to create a free organizer account.{" "}
+            <Link href="/upgrade-organizer?next=/submit" className="underline font-medium">
+              Create organizer account
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card className="group transition-all hover:border-primary hover:shadow-lg">
@@ -42,12 +53,18 @@ export default async function SubmitPage() {
               <h2 className="mb-2 text-lg font-semibold">Event</h2>
               <p className="text-xs text-muted-foreground">Share a sensory-friendly event</p>
             </div>
-            <Button asChild size="sm" className="mt-2 w-full gap-2">
-              <Link href="/organizer/submit/event">
-                Continue
-                <ArrowRight className="h-3 w-3" />
-              </Link>
-            </Button>
+            {isOrganizer ? (
+              <Button asChild size="sm" className="mt-2 w-full gap-2">
+                <Link href="/organizer/submit/event">
+                  Continue
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild size="sm" variant="outline" className="mt-2 w-full gap-2 bg-transparent">
+                <Link href="/upgrade-organizer?next=/organizer/submit/event">Upgrade to Continue</Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
 
@@ -60,12 +77,18 @@ export default async function SubmitPage() {
               <h2 className="mb-2 text-lg font-semibold">Venue</h2>
               <p className="text-xs text-muted-foreground">Add a sensory-friendly business</p>
             </div>
-            <Button asChild size="sm" className="mt-2 w-full gap-2">
-              <Link href="/organizer/submit/venue">
-                Continue
-                <ArrowRight className="h-3 w-3" />
-              </Link>
-            </Button>
+            {isOrganizer ? (
+              <Button asChild size="sm" className="mt-2 w-full gap-2">
+                <Link href="/organizer/submit/venue">
+                  Continue
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild size="sm" variant="outline" className="mt-2 w-full gap-2 bg-transparent">
+                <Link href="/upgrade-organizer?next=/organizer/submit/venue">Upgrade to Continue</Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
 
@@ -81,12 +104,18 @@ export default async function SubmitPage() {
               <h2 className="mb-2 text-lg font-semibold">Park/Playground</h2>
               <p className="text-xs text-muted-foreground">Add a sensory-friendly outdoor space</p>
             </div>
-            <Button asChild size="sm" className="mt-2 w-full gap-2">
-              <Link href="/organizer/submit/park">
-                Continue
-                <ArrowRight className="h-3 w-3" />
-              </Link>
-            </Button>
+            {isOrganizer ? (
+              <Button asChild size="sm" className="mt-2 w-full gap-2">
+                <Link href="/organizer/submit/park">
+                  Continue
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild size="sm" variant="outline" className="mt-2 w-full gap-2 bg-transparent">
+                <Link href="/upgrade-organizer?next=/organizer/submit/park">Upgrade to Continue</Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
 
@@ -102,12 +131,18 @@ export default async function SubmitPage() {
               <h2 className="mb-2 text-lg font-semibold">Place of Worship</h2>
               <p className="text-xs text-muted-foreground">Share your sensory-friendly services</p>
             </div>
-            <Button asChild size="sm" className="mt-2 w-full gap-2">
-              <Link href="/organizer/submit/worship">
-                Continue
-                <ArrowRight className="h-3 w-3" />
-              </Link>
-            </Button>
+            {isOrganizer ? (
+              <Button asChild size="sm" className="mt-2 w-full gap-2">
+                <Link href="/organizer/submit/worship">
+                  Continue
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild size="sm" variant="outline" className="mt-2 w-full gap-2 bg-transparent">
+                <Link href="/upgrade-organizer?next=/organizer/submit/worship">Upgrade to Continue</Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>

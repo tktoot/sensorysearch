@@ -5,9 +5,31 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar, Clock, MapPin, Users, Volume2, Sun, Info } from "lucide-react"
-import { mockEvents, filterEventsByAge, type UserProfile } from "@/lib/mock-data"
 import Link from "next/link"
 import { createBrowserClient } from "@/lib/supabase-browser-client"
+
+type UserProfile = {
+  agePreference: "toddlers" | "children" | "teens" | "adults" | null
+}
+
+function filterEventsByAge(events: any[], agePreference: UserProfile["agePreference"]): any[] {
+  if (!agePreference) return events
+
+  const ageRanges = {
+    toddlers: { min: 0, max: 5 },
+    children: { min: 6, max: 12 },
+    teens: { min: 13, max: 17 },
+    adults: { min: 18, max: 99 },
+  }
+
+  const userRange = ageRanges[agePreference]
+  if (!userRange) return events
+
+  return events.filter((event) => {
+    if (!event.min_age || !event.max_age) return true
+    return userRange.min <= event.max_age && userRange.max >= event.min_age
+  })
+}
 
 export default function EventsPage() {
   const [userProfile, setUserProfile] = useState<UserProfile>({ agePreference: null })
@@ -35,7 +57,7 @@ export default function EventsPage() {
 
         if (error) {
           console.error("[v0] Error fetching events:", error)
-          setEvents(mockEvents)
+          setEvents([])
         } else if (eventsData) {
           const mapped = eventsData.map((e: any) => ({
             id: e.id,
@@ -44,9 +66,11 @@ export default function EventsPage() {
             venueName: e.venue_name || e.address,
             date: e.event_date,
             time: e.event_start_time || "TBD",
-            imageUrl: e.images?.[0] || "/placeholder.svg",
+            imageUrl: e.images?.[0] || e.hero_image_url || "/placeholder.svg",
             capacity: e.capacity || 50,
             registered: 0,
+            min_age: e.min_age,
+            max_age: e.max_age,
             sensoryAttributes: {
               noiseLevel: e.noise_level || "Quiet",
               lighting: e.lighting || "Soft",
@@ -57,7 +81,7 @@ export default function EventsPage() {
         }
       } catch (error) {
         console.error("[v0] Error:", error)
-        setEvents(mockEvents)
+        setEvents([])
       } finally {
         setLoading(false)
       }

@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MapPin, Star, Volume2, Sun, Users, Calendar, Clock, Building2, Trees } from "lucide-react"
-import { filterEventsByAge, filterActiveEvents, type UserProfile, type Venue, type Event } from "@/lib/mock-data"
 import { trackEventView } from "@/lib/analytics"
 import Link from "next/link"
 import { ProfileBanner } from "@/components/profile-banner"
@@ -18,6 +17,80 @@ import { SkeletonCard } from "@/components/skeleton-card"
 import { OpenInMapsButton } from "@/components/open-in-maps-button"
 import { createBrowserClient } from "@/lib/supabase-browser-client"
 import { EmailCaptureBanner } from "@/components/email-capture-banner"
+
+// Local type definitions
+type UserProfile = {
+  agePreference: "toddlers" | "children" | "teens" | "adults" | null
+}
+
+type SensoryAttributes = {
+  noiseLevel: string
+  lighting: string
+  crowdDensity: string
+  hasQuietSpace: boolean
+  wheelchairAccessible: boolean
+  sensoryFriendlyHours: boolean
+}
+
+type Venue = {
+  id: string
+  name: string
+  category: string
+  description: string
+  address: string
+  city: string
+  coordinates: { lat: number; lng: number } | null
+  sensoryAttributes: SensoryAttributes
+  rating: number
+  imageUrl: string
+  tags: string[]
+  listingType: string
+}
+
+type Event = {
+  id: string
+  name: string
+  venueName: string
+  date: string
+  time: string
+  description: string
+  sensoryAttributes: SensoryAttributes
+  capacity: number
+  registered: number
+  imageUrl: string
+  tags: string[]
+  ageRange: { min: number; max: number }
+  coordinates?: { lat: number; lng: number } | null
+  category?: string
+}
+
+// Filter functions
+function filterEventsByAge(events: Event[], agePreference: UserProfile["agePreference"]): Event[] {
+  if (!agePreference) return events
+
+  const ageRanges = {
+    toddlers: { min: 0, max: 5 },
+    children: { min: 6, max: 12 },
+    teens: { min: 13, max: 17 },
+    adults: { min: 18, max: 99 },
+  }
+
+  const userRange = ageRanges[agePreference]
+  if (!userRange) return events
+
+  return events.filter((event) => userRange.min <= event.ageRange.max && userRange.max >= event.ageRange.min)
+}
+
+function filterActiveEvents(events: Event[]): Event[] {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  return events.filter((event) => {
+    const eventDate = new Date(event.date)
+    eventDate.setHours(0, 0, 0, 0)
+    return eventDate >= today
+  })
+}
 
 export default function DiscoverPage() {
   const [searchQuery, setSearchQuery] = useState("")

@@ -5,31 +5,93 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Heart, MapPin, Calendar, Clock, Volume2, Sun, Users } from "lucide-react"
-import { mockEvents, mockVenues, type Event, type Venue } from "@/lib/mock-data"
-import { getGuestFavorites } from "@/lib/guest-store"
 import { FavoriteButton } from "@/components/favorite-button"
 import Link from "next/link"
+import { createBrowserClient } from "@/lib/supabase-browser-client"
 
 export default function FavoritesPage() {
-  const [favoriteEvents, setFavoriteEvents] = useState<Event[]>([])
-  const [favoriteVenues, setFavoriteVenues] = useState<Venue[]>([])
+  const [favoriteEvents, setFavoriteEvents] = useState<any[]>([])
+  const [favoriteVenues, setFavoriteVenues] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const favoriteIds = getGuestFavorites()
+    async function fetchFavorites() {
+      try {
+        const supabase = createBrowserClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        )
 
-    const storedEvents = localStorage.getItem("events")
-    const storedVenues = localStorage.getItem("venues")
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
 
-    const allEvents = storedEvents ? JSON.parse(storedEvents) : mockEvents
-    const allVenues = storedVenues ? JSON.parse(storedVenues) : mockVenues
+        if (user) {
+          const { data: favoritesData } = await supabase
+            .from("favorites")
+            .select("listing_id, listing_type")
+            .eq("user_id", user.id)
 
-    const events = allEvents.filter((event: Event) => favoriteIds.includes(event.id))
-    const venues = allVenues.filter((venue: Venue) => favoriteIds.includes(venue.id))
+          if (favoritesData) {
+            const eventIds = favoritesData.filter((f) => f.listing_type === "event").map((f) => f.listing_id)
+            const venueIds = favoritesData.filter((f) => f.listing_type === "venue").map((f) => f.listing_id)
 
-    setFavoriteEvents(events)
-    setFavoriteVenues(venues)
-    setLoading(false)
+            if (eventIds.length > 0) {
+              const { data: eventsData } = await supabase.from("events").select("*").in("id", eventIds)
+
+              if (eventsData) {
+                setFavoriteEvents(
+                  eventsData.map((e: any) => ({
+                    id: e.id,
+                    name: e.name,
+                    description: e.description,
+                    venueName: e.venue_name || e.address,
+                    date: e.event_date,
+                    time: e.event_start_time || "TBD",
+                    imageUrl: e.images?.[0] || e.hero_image_url || "/placeholder.svg",
+                    capacity: e.capacity || 50,
+                    registered: 0,
+                    sensoryAttributes: {
+                      noiseLevel: e.noise_level || "Quiet",
+                      lighting: e.lighting || "Soft",
+                    },
+                    tags: e.sensory_features || [],
+                  })),
+                )
+              }
+            }
+
+            if (venueIds.length > 0) {
+              const { data: venuesData } = await supabase.from("venues").select("*").in("id", venueIds)
+
+              if (venuesData) {
+                setFavoriteVenues(
+                  venuesData.map((v: any) => ({
+                    id: v.id,
+                    name: v.name,
+                    description: v.description,
+                    city: v.city,
+                    address: v.address,
+                    imageUrl: v.images?.[0] || v.hero_image_url || "/placeholder.svg",
+                    sensoryAttributes: {
+                      noiseLevel: v.noise_level || "Quiet",
+                      lighting: v.lighting || "Natural",
+                    },
+                    tags: v.sensory_features || [],
+                  })),
+                )
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error("[v0] Error fetching favorites:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchFavorites()
   }, [])
 
   if (loading) {
