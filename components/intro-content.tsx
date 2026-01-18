@@ -20,7 +20,7 @@ export default function IntroContent() {
   const nextUrl = searchParams.get("next") || "/discover"
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
-  const [authMode, setAuthMode] = useState<"signup" | "signin">("signup")
+  const [authMode, setAuthMode] = useState<"signup" | "signin">("signin") // Changed default from "signup" to "signin"
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -316,13 +316,6 @@ export default function IntroContent() {
                 <ChevronRight className="ml-2 h-5 w-5" />
               </Button>
             </div>
-
-            <button
-              onClick={() => setCurrentSlide(0)}
-              className="mt-6 text-sm text-white/80 hover:text-white underline"
-            >
-              Replay Intro
-            </button>
           </div>
 
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2">

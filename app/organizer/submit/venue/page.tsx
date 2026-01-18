@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-
 import type React from "react"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -18,6 +17,7 @@ import { isValidUrl, normalizeUrl } from "@/lib/url-utils"
 import { checkSubmissionAccess } from "@/lib/submission-guard"
 import { SensoryAccessibilitySection } from "@/components/submission-forms/sensory-accessibility-section"
 import type { NoiseLevel, LightingLevel, CrowdLevel, DensityLevel } from "@/lib/constants/sensory-fields"
+import { SubmissionSuccessModal } from "@/components/submission-success-modal"
 
 export default function SubmitVenuePage() {
   const router = useRouter()
@@ -50,6 +50,7 @@ export default function SubmitVenuePage() {
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
 
   useEffect(() => {
     checkAccess()
@@ -73,10 +74,13 @@ export default function SubmitVenuePage() {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log("[v0] ========== FORM SUBMIT TRIGGERED ==========")
     e.preventDefault()
+    console.log("[v0] preventDefault called")
     setErrors({})
 
     const newErrors: Record<string, string> = {}
+    console.log("[v0] Starting validation...")
     if (!formData.title.trim()) newErrors.title = "Title is required"
     if (!formData.description.trim()) newErrors.description = "Description is required"
     if (formData.description.length < 300) newErrors.description = "Description must be at least 300 characters"
@@ -93,7 +97,10 @@ export default function SubmitVenuePage() {
       newErrors.website = "Please enter a valid URL (e.g., example.com or https://example.com)"
     }
 
+    console.log("[v0] Validation errors:", newErrors)
+
     if (Object.keys(newErrors).length > 0) {
+      console.log("[v0] Validation failed, stopping submission")
       setErrors(newErrors)
       toast({
         title: "Validation Error",
@@ -103,66 +110,110 @@ export default function SubmitVenuePage() {
       return
     }
 
+    console.log("[v0] Validation passed, setting submitting to true")
     setSubmitting(true)
 
     try {
+      console.log("[v0] Starting API call to /api/submissions")
+
+      const payload = {
+        type: "venue",
+        title: formData.title,
+        description: formData.description,
+        address: {
+          street: formData.street,
+          city: formData.city,
+          state: formData.state,
+          zip: formData.zip,
+        },
+        hours: formData.hours,
+        website: formData.website ? normalizeUrl(formData.website) : "",
+        contactEmail: formData.contactEmail,
+        phone: formData.phone,
+        sensory: {
+          noiseLevel: formData.noiseLevel,
+          lightingLevel: formData.lightingLevel,
+          crowdLevel: formData.crowdLevel,
+          densityLevel: formData.densityLevel,
+        },
+        accessibility: {
+          wheelchairAccessible: formData.wheelchairAccessible,
+          accessibleParking: formData.accessibleParking,
+          accessibleRestroom: formData.accessibleRestroom,
+        },
+        sensorySupports: {
+          quietSpaceAvailable: formData.quietSpaceAvailable,
+          sensoryFriendlyHours: formData.sensoryFriendlyHours,
+          headphonesAllowed: formData.headphonesAllowed,
+          staffTrained: formData.staffTrained,
+        },
+        images,
+      }
+
+      console.log("[v0] Payload prepared:", JSON.stringify(payload).substring(0, 200) + "...")
+
       const response = await fetch("/api/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "venue",
-          title: formData.title,
-          description: formData.description,
-          address: {
-            street: formData.street,
-            city: formData.city,
-            state: formData.state,
-            zip: formData.zip,
-          },
-          hours: formData.hours,
-          website: formData.website ? normalizeUrl(formData.website) : "",
-          contactEmail: formData.contactEmail,
-          phone: formData.phone,
-          sensory: {
-            noiseLevel: formData.noiseLevel,
-            lightingLevel: formData.lightingLevel,
-            crowdLevel: formData.crowdLevel,
-            densityLevel: formData.densityLevel,
-          },
-          accessibility: {
-            wheelchairAccessible: formData.wheelchairAccessible,
-            accessibleParking: formData.accessibleParking,
-            accessibleRestroom: formData.accessibleRestroom,
-          },
-          sensorySupports: {
-            quietSpaceAvailable: formData.quietSpaceAvailable,
-            sensoryFriendlyHours: formData.sensoryFriendlyHours,
-            headphonesAllowed: formData.headphonesAllowed,
-            staffTrained: formData.staffTrained,
-          },
-          images,
-        }),
+        credentials: "include",
+        body: JSON.stringify(payload),
       })
+
+      console.log("[v0] Response received, status:", response.status)
+
+      const result = await response.json()
+      console.log("[v0] Response JSON parsed:", result)
 
       if (!response.ok) {
-        throw new Error("Submission failed")
+        console.log("[v0] Response not OK, throwing error")
+        throw new Error(result.error || result.details || "Submission failed")
       }
 
-      toast({
-        title: "Submitted for Review",
-        description: "You'll be notified after approval.",
-      })
+      console.log("[v0] Submission successful! ID:", result.id)
+      console.log("[v0] Showing success modal")
 
-      router.push("/organizer")
+      setShowSuccessModal(true)
+
+      // Reset form
+      console.log("[v0] Resetting form")
+      setFormData({
+        title: "",
+        description: "",
+        street: "",
+        city: "",
+        state: "",
+        zip: "",
+        hours: "",
+        website: "",
+        contactEmail: "",
+        phone: "",
+        noiseLevel: "" as NoiseLevel | "",
+        lightingLevel: "" as LightingLevel | "",
+        crowdLevel: "" as CrowdLevel | "",
+        densityLevel: "" as DensityLevel | "",
+        wheelchairAccessible: false,
+        accessibleParking: false,
+        accessibleRestroom: false,
+        quietSpaceAvailable: false,
+        sensoryFriendlyHours: false,
+        headphonesAllowed: false,
+        staffTrained: false,
+      })
+      setImages([])
+      console.log("[v0] Form reset complete")
     } catch (error) {
-      console.error("[v0] Submission error:", error)
+      console.error("[v0] ========== SUBMISSION ERROR ==========")
+      console.error("[v0] Error object:", error)
+      console.error("[v0] Error message:", error instanceof Error ? error.message : String(error))
       toast({
         title: "Submission Failed",
-        description: "Please try again later",
+        description: error instanceof Error ? error.message : "Please try again later",
         variant: "destructive",
       })
     } finally {
+      console.log("[v0] Finally block - setting submitting to false")
       setSubmitting(false)
+      console.log("[v0] ========== FORM SUBMIT COMPLETE ==========")
     }
   }
 
@@ -348,6 +399,7 @@ export default function SubmitVenuePage() {
           </form>
         </CardContent>
       </Card>
+      <SubmissionSuccessModal open={showSuccessModal} onClose={() => setShowSuccessModal(false)} type="venue" />
     </div>
   )
 }

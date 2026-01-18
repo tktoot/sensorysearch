@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { MoreVertical, Info, Play, Search, Mail, Scale, ChevronRight, Shield } from "lucide-react"
 import Image from "next/image"
 import { getCurrentUser, type UserRole } from "@/lib/auth-utils"
-import type { UserProfile } from "@/lib/mock-data"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { SearchOverlay } from "@/components/search-overlay"
 import { resetOnboarding } from "@/lib/profile-helpers"
@@ -24,15 +23,7 @@ export function Navigation() {
     const user = getCurrentUser()
     setUserRole(user?.role || null)
 
-    const savedProfile = localStorage.getItem("userProfile")
-    if (savedProfile) {
-      const profile: UserProfile = JSON.parse(savedProfile)
-      if (!profile.name || !profile.email || !profile.agePreference) {
-        setShowGetStarted(true)
-      }
-    } else {
-      setShowGetStarted(true)
-    }
+    // Users now go through proper auth flow with Supabase
   }, [pathname])
 
   const overflowMenuItems = [

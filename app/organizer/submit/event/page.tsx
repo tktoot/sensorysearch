@@ -17,6 +17,7 @@ import { isValidUrl, normalizeUrl } from "@/lib/url-utils"
 import { checkSubmissionAccess } from "@/lib/submission-guard"
 import { SensoryAccessibilitySection } from "@/components/submission-forms/sensory-accessibility-section"
 import { EventSpecificSection } from "@/components/submission-forms/event-specific-section"
+import { SubmissionSuccessModal } from "@/components/submission-success-modal"
 import type { NoiseLevel, LightingLevel, CrowdLevel, DensityLevel } from "@/lib/constants/sensory-fields"
 
 export default function SubmitEventPage() {
@@ -56,6 +57,7 @@ export default function SubmitEventPage() {
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
 
   useEffect(() => {
     checkAccess()
@@ -80,6 +82,7 @@ export default function SubmitEventPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log("[v0] === FORM SUBMIT CLICKED ===")
     setErrors({})
 
     const newErrors: Record<string, string> = {}
@@ -112,11 +115,15 @@ export default function SubmitEventPage() {
     }
 
     setSubmitting(true)
+    console.log("[v0] Starting submission...")
 
     try {
+      console.log("[v0] Fetching /api/submissions...")
+
       const response = await fetch("/api/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // Include credentials
         body: JSON.stringify({
           type: "event",
           title: formData.title,
@@ -149,7 +156,7 @@ export default function SubmitEventPage() {
             headphonesAllowed: formData.headphonesAllowed,
             staffTrained: formData.staffTrained,
           },
-          eventDetails: {
+          eventEnvironment: {
             amplifiedSound: formData.amplifiedSound,
             flashingLights: formData.flashingLights,
             indoorEvent: formData.indoorEvent,
@@ -160,21 +167,56 @@ export default function SubmitEventPage() {
         }),
       })
 
+      console.log("[v0] Response status:", response.status)
+      const result = await response.json()
+      console.log("[v0] Response body:", result)
+
       if (!response.ok) {
-        throw new Error("Submission failed")
+        if (response.status === 401) {
+          throw new Error("You must be an organizer to submit events. Please upgrade your account first.")
+        }
+        throw new Error(result.error || result.details || "Submission failed")
       }
 
-      toast({
-        title: "Submitted for Review",
-        description: "You'll be notified after approval.",
-      })
+      console.log("[v0] Submission successful:", result.id)
+      setShowSuccessModal(true)
 
-      router.push("/organizer")
+      // Reset form
+      setFormData({
+        title: "",
+        description: "",
+        street: "",
+        city: "",
+        state: "",
+        zip: "",
+        date: "",
+        time: "",
+        website: "",
+        contactEmail: "",
+        phone: "",
+        noiseLevel: "" as NoiseLevel | "",
+        lightingLevel: "" as LightingLevel | "",
+        crowdLevel: "" as CrowdLevel | "",
+        densityLevel: "" as DensityLevel | "",
+        wheelchairAccessible: false,
+        accessibleParking: false,
+        accessibleRestroom: false,
+        quietSpaceAvailable: false,
+        sensoryFriendlyHours: false,
+        headphonesAllowed: false,
+        staffTrained: false,
+        amplifiedSound: false,
+        flashingLights: false,
+        indoorEvent: false,
+        outdoorEvent: false,
+        expectedCrowdSize: "",
+      })
+      setImages([])
     } catch (error) {
       console.error("[v0] Submission error:", error)
       toast({
         title: "Submission Failed",
-        description: "Please try again later",
+        description: error instanceof Error ? error.message : "Please try again later",
         variant: "destructive",
       })
     } finally {
@@ -393,6 +435,7 @@ export default function SubmitEventPage() {
           </form>
         </CardContent>
       </Card>
+      <SubmissionSuccessModal open={showSuccessModal} onClose={() => setShowSuccessModal(false)} type="event" />
     </div>
   )
 }

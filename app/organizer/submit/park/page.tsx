@@ -18,6 +18,7 @@ import { checkSubmissionAccess } from "@/lib/submission-guard"
 import { SensoryAccessibilitySection } from "@/components/submission-forms/sensory-accessibility-section"
 import { ParkSpecificSection } from "@/components/submission-forms/park-specific-section"
 import type { NoiseLevel, LightingLevel, CrowdLevel, DensityLevel } from "@/lib/constants/sensory-fields"
+import { SubmissionSuccessModal } from "@/components/submission-success-modal"
 
 export default function SubmitParkPage() {
   const router = useRouter()
@@ -57,6 +58,7 @@ export default function SubmitParkPage() {
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
 
   useEffect(() => {
     checkAccess()
@@ -113,9 +115,12 @@ export default function SubmitParkPage() {
     setSubmitting(true)
 
     try {
+      console.log("[v0] Submitting park...")
+
       const response = await fetch("/api/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           type: "park",
           title: formData.title,
@@ -147,7 +152,7 @@ export default function SubmitParkPage() {
             headphonesAllowed: formData.headphonesAllowed,
             staffTrained: formData.staffTrained,
           },
-          parkDetails: {
+          parkFeatures: {
             fencingType: formData.fencingType,
             petsAllowed: formData.petsAllowed,
             dogsOnLeash: formData.dogsOnLeash,
@@ -160,21 +165,51 @@ export default function SubmitParkPage() {
         }),
       })
 
+      const result = await response.json()
+
       if (!response.ok) {
-        throw new Error("Submission failed")
+        throw new Error(result.error || result.details || "Submission failed")
       }
 
-      toast({
-        title: "Submitted for Review",
-        description: "You'll be notified after approval.",
-      })
+      console.log("[v0] Submission successful:", result.id)
+      setShowSuccessModal(true)
 
-      router.push("/organizer")
+      setFormData({
+        title: "",
+        description: "",
+        street: "",
+        city: "",
+        state: "",
+        zip: "",
+        hours: "",
+        website: "",
+        contactEmail: "",
+        phone: "",
+        noiseLevel: "" as NoiseLevel | "",
+        lightingLevel: "" as LightingLevel | "",
+        crowdLevel: "" as CrowdLevel | "",
+        densityLevel: "" as DensityLevel | "",
+        wheelchairAccessible: false,
+        accessibleParking: false,
+        accessibleRestroom: false,
+        quietSpaceAvailable: false,
+        sensoryFriendlyHours: false,
+        headphonesAllowed: false,
+        staffTrained: false,
+        fencingType: "",
+        petsAllowed: false,
+        dogsOnLeash: false,
+        noPets: false,
+        shadedAreas: false,
+        benchesSeating: false,
+        softGround: false,
+      })
+      setImages([])
     } catch (error) {
       console.error("[v0] Submission error:", error)
       toast({
         title: "Submission Failed",
-        description: "Please try again later",
+        description: error instanceof Error ? error.message : "Please try again later",
         variant: "destructive",
       })
     } finally {
@@ -381,6 +416,7 @@ export default function SubmitParkPage() {
           </form>
         </CardContent>
       </Card>
+      <SubmissionSuccessModal open={showSuccessModal} onClose={() => setShowSuccessModal(false)} type="park" />
     </div>
   )
 }

@@ -1,10 +1,64 @@
-import type { Venue, Event } from "./mock-data"
 import { SEED_BETA_DATA } from "./config"
 
 /**
  * Beta Seed Data for Philadelphia / 18076 Area
  * Only loads when SEED_BETA_DATA=true
  */
+
+interface SensoryAttributes {
+  noiseLevel: string
+  lighting: string
+  crowdDensity: string
+  hasQuietSpace: boolean
+  wheelchairAccessible: boolean
+  sensoryFriendlyHours: boolean
+}
+
+interface Venue {
+  id: string
+  name: string
+  category: string
+  description: string
+  address: string
+  city: string
+  coordinates: { lat: number; lng: number }
+  sensoryAttributes: SensoryAttributes
+  rating: number
+  reviewCount: number
+  imageUrl: string
+  tags: string[]
+  listingType: string
+  contactEmail?: string
+  contactWebsite?: string
+  status?: string
+  submittedAt?: string
+  approvedAt?: string
+  submittedBy?: string
+}
+
+interface Event {
+  id: string
+  name: string
+  venueId: string
+  venueName: string
+  date: string
+  time: string
+  description: string
+  sensoryAttributes: SensoryAttributes
+  capacity: number
+  registered: number
+  imageUrl: string
+  tags: string[]
+  ageRange: { min: number; max: number }
+  coordinates?: { lat: number; lng: number }
+  category?: string
+  listingType?: string
+  price?: string
+  status?: string
+  submittedAt?: string
+  approvedAt?: string
+  submittedBy?: string
+}
 
 // Helper to generate future dates with time
 function addDays(baseDate: Date, daysFromNow: number, hours: number, minutes: number): string {

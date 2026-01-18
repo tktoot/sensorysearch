@@ -4,12 +4,24 @@ import { createClient } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("[v0] === SUBMISSION API CALLED ===")
+
     const user = await getServerUser()
+    console.log("[v0] User check:", user ? `${user.email} (${user.role})` : "NO USER")
+
     if (!user || (user.role !== "organizer" && user.role !== "admin")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      console.log("[v0] Authorization failed - user role:", user?.role)
+      return NextResponse.json({ error: "Unauthorized - must be organizer or admin" }, { status: 401 })
     }
 
     const body = await request.json()
+    console.log("[v0] Request body received:", {
+      type: body.type,
+      title: body.title,
+      hasSensory: !!body.sensory,
+      hasAccessibility: !!body.accessibility,
+    })
+
     const {
       type,
       title,
@@ -41,6 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!sensory || !sensory.noiseLevel || !sensory.lightingLevel || !sensory.crowdLevel || !sensory.densityLevel) {
+      console.log("[v0] Missing sensory fields:", sensory)
       return NextResponse.json(
         { error: "Missing required sensory fields (noise, lighting, crowd, density)" },
         { status: 400 },
@@ -49,25 +62,19 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
-    const payload: any = {
-      // Core sensory fields
+    const sensoryFeaturesObject = {
       noiseLevel: sensory.noiseLevel,
       lightingLevel: sensory.lightingLevel,
       crowdLevel: sensory.crowdLevel,
       densityLevel: sensory.densityLevel,
-
-      // Accessibility fields
       wheelchairAccessible: accessibility?.wheelchairAccessible || false,
       accessibleParking: accessibility?.accessibleParking || false,
       accessibleRestroom: accessibility?.accessibleRestroom || false,
-
-      // Sensory support fields
       quietSpaceAvailable: sensorySupports?.quietSpaceAvailable || false,
       sensoryFriendlyHours: sensorySupports?.sensoryFriendlyHours || false,
       headphonesAllowed: sensorySupports?.headphonesAllowed || false,
       staffTrained: sensorySupports?.staffTrained || false,
 
-      // Type-specific fields
       ...(type === "event" && eventEnvironment
         ? {
             amplifiedSound: eventEnvironment.amplifiedSound || false,
@@ -117,8 +124,7 @@ export async function POST(request: NextRequest) {
       website: website || null,
       email: contactEmail || null,
       phone: phone || null,
-      // Store all sensory/accessibility data as JSONB for the approval function to read
-      sensory_features: payload,
+      sensory_features: sensoryFeaturesObject,
       images: images || [],
       status: "pending",
       organizer_id: user.id,
@@ -128,20 +134,31 @@ export async function POST(request: NextRequest) {
     if (type === "event") {
       submissionData.event_date = date || null
       submissionData.event_start_time = time || null
-      // Store noise/lighting/crowd at top level too for backwards compatibility
       submissionData.noise_level = sensory.noiseLevel
       submissionData.lighting = sensory.lightingLevel
       submissionData.crowd_level = sensory.crowdLevel
     }
 
+    console.log("[v0] Inserting submission into listings table...")
+    console.log("[v0] Submission data:", JSON.stringify(submissionData, null, 2))
+
     const { data: submission, error } = await supabase.from("listings").insert(submissionData).select().single()
 
     if (error) {
       console.error("[v0] Database error:", error)
-      return NextResponse.json({ error: "Failed to create submission", details: error.message }, { status: 500 })
+      return NextResponse.json(
+        {
+          error: "Failed to create submission",
+          details: error.message,
+          hint: error.hint,
+          code: error.code,
+        },
+        { status: 500 },
+      )
     }
 
-    // Try to send email notification (don't fail submission if this fails)
+    console.log("[v0] Submission created successfully:", submission.id)
+
     try {
       await fetch(`${request.nextUrl.origin}/api/notify-admin`, {
         method: "POST",
@@ -161,12 +178,17 @@ export async function POST(request: NextRequest) {
       type,
       title,
       submitter: user.email,
-      payload: Object.keys(payload),
     })
 
     return NextResponse.json({ success: true, id: submission.id })
   } catch (error) {
     console.error("[v0] Submission error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    )
   }
 }

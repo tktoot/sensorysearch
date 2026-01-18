@@ -9,7 +9,6 @@ import { Loader2, AlertCircle, CreditCard, ArrowLeft, Info } from "lucide-react"
 import { getCurrentUser, hasRole } from "@/lib/auth-utils"
 import { createBillingPortalSession } from "@/lib/stripe-actions"
 import { BILLING_ENABLED } from "@/lib/config"
-import type { UserProfile } from "@/lib/mock-data"
 
 export default function BillingManagePage() {
   const router = useRouter()
@@ -50,15 +49,10 @@ export default function BillingManagePage() {
         return
       }
 
-      // Get billing customer ID from profile
-      const savedProfile = localStorage.getItem("userProfile")
-      let billingCustomerId: string | null = null
+      const billingCustomerId: string | null = null
 
-      if (savedProfile) {
-        const profile: UserProfile = JSON.parse(savedProfile)
-        billingCustomerId = profile.billing_customer_id || null
-        console.log("[v0] Loaded billing customer ID", { billingCustomerId })
-      }
+      // TODO: Fetch from Supabase organizer_profiles table
+      console.log("[v0] TODO: Fetch billing_customer_id from organizer_profiles")
 
       if (!billingCustomerId) {
         console.error("[v0] BILLING_PORTAL_ERROR - No billing customer ID found")
@@ -67,8 +61,6 @@ export default function BillingManagePage() {
         return
       }
 
-      // Create billing portal session
-      console.log("[v0] Creating billing portal session")
       const result = await createBillingPortalSession(billingCustomerId, window.location.origin + "/organizer-account")
 
       if (!result.success) {
@@ -78,7 +70,6 @@ export default function BillingManagePage() {
         return
       }
 
-      // Redirect to Stripe billing portal
       console.log("[v0] BILLING_PORTAL_OK - Redirecting to billing portal", { url: result.url })
       window.location.href = result.url
     }

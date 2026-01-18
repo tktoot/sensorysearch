@@ -1,12 +1,12 @@
 "use client"
-import ProfileDetailsDrawer from "@/components/profile-details-drawer" // Import ProfileDetailsDrawer
+import ProfileDetailsDrawer from "@/components/profile-details-drawer"
 
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Heart, Calendar, Briefcase, ArrowRight, Shield, LogOut } from "lucide-react"
+import { Heart, Calendar, Briefcase, ArrowRight, Shield, LogOut, User2 } from "lucide-react"
 import { ProfileBanner } from "@/components/profile-banner"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -51,7 +51,7 @@ function ProfilePageContent() {
           .maybeSingle()
 
         const hasOrganizerProfile = !!organizerData
-        setIsOrganizer(hasOrganizerProfile || role === "admin")
+        setIsOrganizer(hasOrganizerProfile || role === "organizer" || role === "admin")
         console.log("[v0] PROFILE: Is organizer", hasOrganizerProfile, "Has organizer profile:", !!organizerData)
 
         const { data: profileData } = await supabase
@@ -121,6 +121,22 @@ function ProfilePageContent() {
     }
   }
 
+  const getRoleDisplay = (role: string) => {
+    if (role === "admin") return "Admin"
+    if (role === "organizer") return "Organizer"
+    return "User"
+  }
+
+  const getRoleBadgeConfig = (role: string) => {
+    if (role === "admin") {
+      return { icon: Shield, className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300" }
+    }
+    if (role === "organizer") {
+      return { icon: Briefcase, className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" }
+    }
+    return { icon: User2, className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" }
+  }
+
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -142,6 +158,8 @@ function ProfilePageContent() {
 
   const firstName = "Friend"
   const initials = userEmail ? userEmail[0].toUpperCase() : "U"
+  const roleBadgeConfig = getRoleBadgeConfig(userRole)
+  const RoleIcon = roleBadgeConfig.icon
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-background to-muted/20">
@@ -158,15 +176,10 @@ function ProfilePageContent() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold tracking-tight text-gradient">Welcome back, {firstName}!</h1>
-                {userRole === "admin" && (
-                  <Badge
-                    variant="secondary"
-                    className="gap-1 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
-                  >
-                    <Shield className="h-3 w-3" />
-                    Admin
-                  </Badge>
-                )}
+                <Badge variant="secondary" className={`gap-1 ${roleBadgeConfig.className}`}>
+                  <RoleIcon className="h-3 w-3" />
+                  {getRoleDisplay(userRole)}
+                </Badge>
               </div>
               <div className="flex items-center gap-2">
                 <Button

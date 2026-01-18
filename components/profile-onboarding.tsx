@@ -8,7 +8,12 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { UserIcon, Users, CheckCircle2 } from "lucide-react"
-import type { UserProfile } from "@/lib/mock-data"
+
+interface UserProfile {
+  name: string
+  email: string
+  agePreference: "toddlers" | "children" | "teens" | "adults" | null
+}
 
 interface ProfileOnboardingProps {
   onComplete: (profile: UserProfile) => void

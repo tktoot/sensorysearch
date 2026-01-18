@@ -17,6 +17,7 @@ import { isValidUrl, normalizeUrl } from "@/lib/url-utils"
 import { checkSubmissionAccess } from "@/lib/submission-guard"
 import { SensoryAccessibilitySection } from "@/components/submission-forms/sensory-accessibility-section"
 import { WorshipSpecificSection } from "@/components/submission-forms/worship-specific-section"
+import { SubmissionSuccessModal } from "@/components/submission-success-modal"
 import type { NoiseLevel, LightingLevel, CrowdLevel, DensityLevel } from "@/lib/constants/sensory-fields"
 
 export default function SubmitWorshipPage() {
@@ -55,6 +56,7 @@ export default function SubmitWorshipPage() {
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
 
   useEffect(() => {
     checkAccess()
@@ -103,9 +105,12 @@ export default function SubmitWorshipPage() {
     setSubmitting(true)
 
     try {
+      console.log("[v0] Submitting place of worship...")
+
       const response = await fetch("/api/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           type: "place_of_worship",
           title: formData.name,
@@ -138,7 +143,7 @@ export default function SubmitWorshipPage() {
             headphonesAllowed: formData.headphonesAllowed,
             staffTrained: formData.staffTrained,
           },
-          worshipDetails: {
+          worshipFeatures: {
             sensoryFriendlyService: formData.sensoryFriendlyService,
             quietCryRoom: formData.quietCryRoom,
             flexibleSeating: formData.flexibleSeating,
@@ -148,21 +153,50 @@ export default function SubmitWorshipPage() {
         }),
       })
 
+      const result = await response.json()
+
       if (!response.ok) {
-        throw new Error("Submission failed")
+        throw new Error(result.error || result.details || "Submission failed")
       }
 
-      toast({
-        title: "Submitted for Review",
-        description: "Your place of worship will be reviewed within 24-48 hours.",
-      })
+      console.log("[v0] Submission successful:", result.id)
+      setShowSuccessModal(true)
 
-      router.push("/submit")
+      // Reset form
+      setFormData({
+        name: "",
+        denomination: "",
+        description: "",
+        street: "",
+        city: "",
+        state: "",
+        zip: "",
+        serviceTimes: "",
+        website: "",
+        contactEmail: "",
+        phone: "",
+        noiseLevel: "" as NoiseLevel | "",
+        lightingLevel: "" as LightingLevel | "",
+        crowdLevel: "" as CrowdLevel | "",
+        densityLevel: "" as DensityLevel | "",
+        wheelchairAccessible: false,
+        accessibleParking: false,
+        accessibleRestroom: false,
+        quietSpaceAvailable: false,
+        sensoryFriendlyHours: false,
+        headphonesAllowed: false,
+        staffTrained: false,
+        sensoryFriendlyService: false,
+        quietCryRoom: false,
+        flexibleSeating: false,
+        sensoryKits: false,
+      })
+      setImages([])
     } catch (error) {
       console.error("[v0] Submission error:", error)
       toast({
         title: "Submission Failed",
-        description: "Please try again later",
+        description: error instanceof Error ? error.message : "Please try again later",
         variant: "destructive",
       })
     } finally {
@@ -395,6 +429,11 @@ export default function SubmitWorshipPage() {
           </form>
         </CardContent>
       </Card>
+      <SubmissionSuccessModal
+        open={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        type="place_of_worship"
+      />
     </div>
   )
 }

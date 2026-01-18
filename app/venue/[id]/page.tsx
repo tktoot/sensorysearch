@@ -22,11 +22,32 @@ import {
   Calendar,
   Clock,
 } from "lucide-react"
-import type { Venue } from "@/lib/mock-data"
 import Link from "next/link"
 import { ExperienceSlider } from "@/components/experience-slider"
 import { FeedbackForm } from "@/components/feedback-form"
 import { createBrowserClient } from "@/lib/supabase-browser-client"
+
+interface Venue {
+  id: string
+  name: string
+  description: string
+  category: string
+  city: string
+  address: string
+  rating: number
+  imageUrl: string
+  coordinates: { lat: number; lng: number } | null
+  sensoryAttributes: {
+    noiseLevel: string
+    lighting: string
+    crowdDensity: string
+    hasQuietSpace: boolean
+    wheelchairAccessible: boolean
+    sensoryFriendlyHours: boolean
+  }
+  tags: string[]
+  listingType: string
+}
 
 export default function VenueDetailPage() {
   const params = useParams()

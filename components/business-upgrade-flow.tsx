@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,14 +10,24 @@ import { Badge } from "@/components/ui/badge"
 import { Building2, CreditCard, CheckCircle2, ArrowRight, ArrowLeft } from "lucide-react"
 import { PhoneVerification } from "@/components/phone-verification"
 import { EmailVerification } from "@/components/email-verification"
-import type { UserProfile } from "@/lib/mock-data"
-import { isEmailDomainWhitelisted } from "@/lib/mock-data"
+
+// Define minimal types needed for this component
+interface UserProfile {
+  email?: string
+  role?: string
+}
 
 interface BusinessUpgradeFlowProps {
   open: boolean
   onClose: () => void
-  onComplete: (updatedProfile: UserProfile) => void
+  onComplete: (updatedProfile: any) => void
   currentProfile: UserProfile
+}
+
+function isEmailDomainWhitelisted(email: string): boolean {
+  const whitelistedDomains = ["example.org", "nonprofit.org"]
+  const domain = email.split("@")[1]
+  return whitelistedDomains.includes(domain)
 }
 
 export function BusinessUpgradeFlow({ open, onClose, onComplete, currentProfile }: BusinessUpgradeFlowProps) {
@@ -56,7 +65,7 @@ export function BusinessUpgradeFlow({ open, onClose, onComplete, currentProfile 
     const isWhitelisted = currentProfile.email ? isEmailDomainWhitelisted(currentProfile.email) : false
 
     // Update profile with business info
-    const updatedProfile: UserProfile = {
+    const updatedProfile: any = {
       ...currentProfile,
       role: "business",
       business_verified: true,

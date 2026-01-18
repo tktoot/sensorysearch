@@ -3,23 +3,24 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { MapPin, Star, Volume2, Sun, Users, Heart, Share2, Clock, DollarSign, Accessibility } from "lucide-react"
-import { mockVenues } from "@/lib/mock-data"
+import { MapPin, Volume2, Sun, Users, Heart, Share2, Clock, Accessibility } from "lucide-react"
+import { createClient } from "@/lib/supabase/server"
 
-export function generateStaticParams() {
-  return mockVenues.map((venue) => ({
-    id: venue.id,
-  }))
-}
+export const dynamic = "force-dynamic"
 
-export default function VenuePage({ params }: { params: { id: string } }) {
-  const venue = mockVenues.find((v) => v.id === params.id)
+// Dynamic pages will be generated on-demand when users visit them
+
+export default async function VenuePage({ params }: { params: { id: string } }) {
+  const supabase = await createClient()
+  const { data: venue } = await supabase.from("venues").select("*").eq("id", params.id).single()
 
   if (!venue) {
     notFound()
   }
 
-  const getSensoryLevel = (level: string) => {
+  const getSensoryLevel = (level: string | null) => {
+    if (!level) return "text-foreground"
+
     const colors = {
       quiet: "text-primary",
       moderate: "text-accent",
@@ -34,25 +35,35 @@ export default function VenuePage({ params }: { params: { id: string } }) {
     return colors[level as keyof typeof colors] || "text-foreground"
   }
 
+  const mainImage = venue.images && venue.images.length > 0 ? venue.images[0] : null
+
+  const sensoryFeatures = Array.isArray(venue.sensory_features) ? venue.sensory_features : []
+
+  const hasWheelchairAccess =
+    sensoryFeatures.includes("wheelchair_accessible") || sensoryFeatures.includes("wheelchair-accessible")
+  const hasSensoryHours =
+    sensoryFeatures.includes("sensory_friendly_hours") || sensoryFeatures.includes("sensory-friendly-hours")
+  const hasQuietSpace = sensoryFeatures.includes("quiet_space") || sensoryFeatures.includes("quiet-space")
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Hero Image */}
       <div className="relative mb-8 aspect-[21/9] overflow-hidden rounded-xl">
-        <img src={venue.imageUrl || "/placeholder.svg"} alt={venue.name} className="h-full w-full object-cover" />
+        <img
+          src={mainImage || "/placeholder.svg?height=400&width=1200"}
+          alt={venue.name}
+          className="h-full w-full object-cover"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
         <div className="absolute bottom-6 left-6 right-6">
-          <Badge className="mb-3">{venue.category}</Badge>
+          {venue.category && <Badge className="mb-3">{venue.category}</Badge>}
           <h1 className="mb-2 text-4xl font-bold text-card text-balance">{venue.name}</h1>
           <div className="flex items-center gap-4 text-card">
             <div className="flex items-center gap-1">
-              <Star className="h-5 w-5 fill-accent text-accent" />
-              <span className="font-semibold">{venue.rating}</span>
-              <span className="text-sm">({venue.reviewCount} reviews)</span>
-            </div>
-            <div className="flex items-center gap-1">
               <MapPin className="h-4 w-4" />
               <span className="text-sm">
-                {venue.address}, {venue.city}
+                {venue.address && `${venue.address}, `}
+                {venue.city}
               </span>
             </div>
           </div>
@@ -68,7 +79,9 @@ export default function VenuePage({ params }: { params: { id: string } }) {
               <CardTitle>About This Venue</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground leading-relaxed">{venue.description}</p>
+              <p className="text-muted-foreground leading-relaxed">
+                {venue.description || "No description available."}
+              </p>
             </CardContent>
           </Card>
 
@@ -79,99 +92,99 @@ export default function VenuePage({ params }: { params: { id: string } }) {
               <CardDescription>Detailed sensory attributes to help you prepare for your visit</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                    <Volume2 className="h-5 w-5 text-muted-foreground" />
+              {venue.noise_level && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                        <Volume2 className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Noise Level</p>
+                        <p className="text-sm text-muted-foreground">Sound environment</p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className={`${getSensoryLevel(venue.noise_level)} capitalize`}>
+                      {venue.noise_level}
+                    </Badge>
                   </div>
-                  <div>
-                    <p className="font-medium">Noise Level</p>
-                    <p className="text-sm text-muted-foreground">Sound environment</p>
+                  <Separator />
+                </>
+              )}
+
+              {venue.lighting && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                        <Sun className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Lighting</p>
+                        <p className="text-sm text-muted-foreground">Light intensity</p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className={`${getSensoryLevel(venue.lighting)} capitalize`}>
+                      {venue.lighting}
+                    </Badge>
                   </div>
+                  <Separator />
+                </>
+              )}
+
+              {venue.crowd_level && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                      <Users className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Crowd Density</p>
+                      <p className="text-sm text-muted-foreground">Typical occupancy</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className={`${getSensoryLevel(venue.crowd_level)} capitalize`}>
+                    {venue.crowd_level}
+                  </Badge>
                 </div>
-                <Badge
-                  variant="outline"
-                  className={`${getSensoryLevel(venue.sensoryAttributes.noiseLevel)} capitalize`}
-                >
-                  {venue.sensoryAttributes.noiseLevel}
-                </Badge>
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                    <Sun className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Lighting</p>
-                    <p className="text-sm text-muted-foreground">Light intensity</p>
-                  </div>
-                </div>
-                <Badge variant="outline" className={`${getSensoryLevel(venue.sensoryAttributes.lighting)} capitalize`}>
-                  {venue.sensoryAttributes.lighting}
-                </Badge>
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                    <Users className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Crowd Density</p>
-                    <p className="text-sm text-muted-foreground">Typical occupancy</p>
-                  </div>
-                </div>
-                <Badge
-                  variant="outline"
-                  className={`${getSensoryLevel(venue.sensoryAttributes.crowdDensity)} capitalize`}
-                >
-                  {venue.sensoryAttributes.crowdDensity}
-                </Badge>
-              </div>
+              )}
             </CardContent>
           </Card>
 
           {/* Accessibility Features */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Accessibility Features</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-3">
-                <Accessibility
-                  className={`h-5 w-5 ${venue.sensoryAttributes.wheelchairAccessible ? "text-primary" : "text-muted-foreground"}`}
-                />
-                <span
-                  className={venue.sensoryAttributes.wheelchairAccessible ? "text-foreground" : "text-muted-foreground"}
-                >
-                  Wheelchair Accessible
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Clock
-                  className={`h-5 w-5 ${venue.sensoryAttributes.sensoryFriendlyHours ? "text-primary" : "text-muted-foreground"}`}
-                />
-                <span
-                  className={venue.sensoryAttributes.sensoryFriendlyHours ? "text-foreground" : "text-muted-foreground"}
-                >
-                  Sensory-Friendly Hours Available
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <MapPin
-                  className={`h-5 w-5 ${venue.sensoryAttributes.hasQuietSpace ? "text-primary" : "text-muted-foreground"}`}
-                />
-                <span className={venue.sensoryAttributes.hasQuietSpace ? "text-foreground" : "text-muted-foreground"}>
-                  Quiet Space Available
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+          {(hasWheelchairAccess || hasSensoryHours || hasQuietSpace || venue.accessibility_notes) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Accessibility Features</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {hasWheelchairAccess && (
+                  <div className="flex items-center gap-3">
+                    <Accessibility className="h-5 w-5 text-primary" />
+                    <span>Wheelchair Accessible</span>
+                  </div>
+                )}
+                {hasSensoryHours && (
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-5 w-5 text-primary" />
+                    <span>Sensory-Friendly Hours Available</span>
+                  </div>
+                )}
+                {hasQuietSpace && (
+                  <div className="flex items-center gap-3">
+                    <MapPin className="h-5 w-5 text-primary" />
+                    <span>Quiet Space Available</span>
+                  </div>
+                )}
+                {venue.accessibility_notes && (
+                  <div className="mt-4 text-sm text-muted-foreground">
+                    <p className="font-medium mb-1">Additional Notes:</p>
+                    <p>{venue.accessibility_notes}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Sidebar */}
@@ -191,20 +204,22 @@ export default function VenuePage({ params }: { params: { id: string } }) {
           </Card>
 
           {/* Tags */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Tags</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {venue.tags.map((tag) => (
-                  <Badge key={tag} variant="secondary">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {sensoryFeatures.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Features</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {sensoryFeatures.map((feature) => (
+                    <Badge key={feature} variant="secondary">
+                      {feature.replace(/_/g, " ").replace(/-/g, " ")}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Quick Info */}
           <Card>
@@ -212,18 +227,37 @@ export default function VenuePage({ params }: { params: { id: string } }) {
               <CardTitle className="text-base">Quick Info</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                <span>{venue.address}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span>Open daily 9AM - 6PM</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span>Free entry</span>
-              </div>
+              {venue.address && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <span>{venue.address}</span>
+                </div>
+              )}
+              {venue.hours && (
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span>{venue.hours}</span>
+                </div>
+              )}
+              {venue.phone && (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">📞</span>
+                  <span>{venue.phone}</span>
+                </div>
+              )}
+              {venue.website && (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">🌐</span>
+                  <a
+                    href={venue.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    Visit Website
+                  </a>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

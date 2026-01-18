@@ -1,9 +1,16 @@
-import type { Event } from "@/lib/mock-data"
+interface Event {
+  name: string
+  date: string
+  time: string
+  venueName: string
+  description: string
+  businessEmail?: string
+}
 
 export interface CalendarEvent {
   title: string
-  startDateTime: string // ISO 8601
-  endDateTime: string // ISO 8601
+  startDateTime: string
+  endDateTime: string
   timezone?: string
   location: string
   description: string

@@ -21,7 +21,6 @@ import {
   Gift,
   Shield,
 } from "lucide-react"
-import { mockVenues, mockEvents } from "@/lib/mock-data"
 import { createClient } from "@/lib/supabase/client"
 
 interface Subscription {
@@ -43,6 +42,8 @@ export function AdminDashboard() {
   const [submissions, setSubmissions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
+  const [venueCount, setVenueCount] = useState(0)
+  const [eventCount, setEventCount] = useState(0)
 
   const tierInfo = {
     basic: { name: "Basic", icon: Sparkles, color: "bg-blue-500/10 text-blue-500" },
@@ -57,7 +58,22 @@ export function AdminDashboard() {
     }
 
     fetchSubmissions()
+    fetchCounts()
   }, [])
+
+  const fetchCounts = async () => {
+    try {
+      const supabase = createClient()
+
+      const { count: venueCount } = await supabase.from("venues").select("*", { count: "exact", head: true })
+      const { count: eventCount } = await supabase.from("events").select("*", { count: "exact", head: true })
+
+      setVenueCount(venueCount || 0)
+      setEventCount(eventCount || 0)
+    } catch (err) {
+      console.error("[v0] Failed to fetch counts:", err)
+    }
+  }
 
   const fetchSubmissions = async () => {
     try {
@@ -119,8 +135,8 @@ export function AdminDashboard() {
   }
 
   const stats = {
-    totalVenues: 0, // Will be calculated from final tables
-    totalEvents: 0, // Will be calculated from final tables
+    totalVenues: venueCount,
+    totalEvents: eventCount,
     pendingSubmissions: submissions.filter((s) => s.status === "pending").length,
     approvedToday: submissions.filter(
       (s) =>
@@ -436,85 +452,33 @@ export function AdminDashboard() {
         <TabsContent value="venues" className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-semibold">All Venues</h2>
-            <Badge variant="secondary">{mockVenues.length} total</Badge>
+            <Badge variant="secondary">{venueCount} total</Badge>
           </div>
 
-          <div className="space-y-3">
-            {mockVenues.map((venue) => (
-              <Card key={venue.id}>
-                <CardContent className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="relative h-16 w-16 overflow-hidden rounded-lg">
-                      <img
-                        src={venue.imageUrl || "/placeholder.svg"}
-                        alt={venue.name}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <div>
-                      <p className="font-medium">{venue.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {venue.category} • {venue.city}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-sm font-medium">{venue.rating} ★</p>
-                      <p className="text-xs text-muted-foreground">{venue.reviewCount} reviews</p>
-                    </div>
-                    <button className="rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted">
-                      Edit
-                    </button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Card>
+            <CardContent className="flex h-48 flex-col items-center justify-center gap-3 p-6">
+              <MapPin className="h-12 w-12 text-muted-foreground" />
+              <p className="text-center text-muted-foreground">
+                Venue management coming soon. Check the Discover page to see live venues.
+              </p>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="events" className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-semibold">All Events</h2>
-            <Badge variant="secondary">{mockEvents.length} upcoming</Badge>
+            <Badge variant="secondary">{eventCount} total</Badge>
           </div>
 
-          <div className="space-y-3">
-            {mockEvents.map((event) => (
-              <Card key={event.id}>
-                <CardContent className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="relative h-16 w-16 overflow-hidden rounded-lg">
-                      <img
-                        src={event.imageUrl || "/placeholder.svg"}
-                        alt={event.name}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <div>
-                      <p className="font-medium">{event.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {event.venueName} •{" "}
-                        {new Date(event.date).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-sm font-medium">{event.crowdLevel || "Not specified"}</p>
-                      <p className="text-xs text-muted-foreground">crowd level</p>
-                    </div>
-                    <button className="rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted">
-                      Edit
-                    </button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Card>
+            <CardContent className="flex h-48 flex-col items-center justify-center gap-3 p-6">
+              <Calendar className="h-12 w-12 text-muted-foreground" />
+              <p className="text-center text-muted-foreground">
+                Event management coming soon. Check the Discover page to see live events.
+              </p>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

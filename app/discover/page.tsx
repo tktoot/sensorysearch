@@ -119,10 +119,10 @@ export default function DiscoverPage() {
       )
 
       const {
-        data: { session },
-      } = await supabase.auth.getSession()
+        data: { user },
+      } = await supabase.auth.getUser()
 
-      if (!session) {
+      if (!user) {
         console.log("[v0] Discover: No auth session, redirecting to intro")
         router.push("/intro?next=/discover")
         return

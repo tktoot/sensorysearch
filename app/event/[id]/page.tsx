@@ -19,7 +19,6 @@ import {
   ExternalLink,
   Accessibility,
 } from "lucide-react"
-import type { Event } from "@/lib/mock-data"
 import { trackEventView, addUserFavorite, removeUserFavorite, isEventFavorited } from "@/lib/analytics"
 import { eventToCalendarEvent } from "@/lib/calendar-utils"
 import { AddToCalendarDropdown } from "@/components/add-to-calendar-dropdown"
@@ -27,6 +26,32 @@ import Link from "next/link"
 import { ExperienceSlider } from "@/components/experience-slider"
 import { FeedbackForm } from "@/components/feedback-form"
 import { createBrowserClient } from "@/lib/supabase-browser-client"
+
+interface Event {
+  id: string
+  name: string
+  venueName: string
+  venueId: string | null
+  city: string
+  date: string
+  time: string
+  imageUrl: string
+  capacity: number
+  registered: number
+  ageRange: { min: number; max: number }
+  coordinates: { lat: number; lng: number } | null
+  sensoryAttributes: {
+    noiseLevel: string
+    lighting: string
+    crowdDensity: string
+    hasQuietSpace: boolean
+    wheelchairAccessible: boolean
+  }
+  tags: string[]
+  businessEmail?: string
+  crowdLevel?: string
+  description: string
+}
 
 export default function EventDetailPage() {
   const params = useParams()
