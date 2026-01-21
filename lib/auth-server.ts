@@ -89,9 +89,10 @@ export function isAdminEmail(email: string): boolean {
  */
 export async function syncUserRole(userId: string, email: string) {
   const supabase = await createClient()
+  const user = await getServerUser()
 
   const shouldBeAdmin = isAdminEmail(email)
-  const role = shouldBeAdmin ? "admin" : "user"
+  const role = user!.role
 
   // Update or insert user record with correct role
   const { error } = await supabase.from("users").upsert(

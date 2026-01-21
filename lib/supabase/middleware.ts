@@ -64,7 +64,7 @@ export async function updateSession(request: NextRequest) {
 
   if (user?.email) {
     const isAdmin = ADMIN_EMAILS.includes(user.email.toLowerCase())
-    const role = isAdmin ? "admin" : "user"
+    const role = isAdmin ? "admin" : user.role
 
     // Update user record with role and last login timestamp
     await supabase

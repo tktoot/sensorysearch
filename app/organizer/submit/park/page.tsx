@@ -88,7 +88,7 @@ export default function SubmitParkPage() {
     const newErrors: Record<string, string> = {}
     if (!formData.title.trim()) newErrors.title = "Title is required"
     if (!formData.description.trim()) newErrors.description = "Description is required"
-    if (formData.description.length < 300) newErrors.description = "Description must be at least 300 characters"
+    if (formData.description.length < 10) newErrors.description = "Description must be at least 10 characters"
     if (formData.description.length > 1000) newErrors.description = "Description must be less than 1000 characters"
     if (!formData.street.trim()) newErrors.street = "Street address is required"
     if (!formData.city.trim()) newErrors.city = "City is required"
