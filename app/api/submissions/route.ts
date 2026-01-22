@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
       website: website || null,
       email: contactEmail || null,
       phone: phone || null,
-      sensory_features: sensoryFeaturesObject,
+      //sensory_features: sensoryFeaturesObject,
       images: images || [],
       status: "pending",
       organizer_id: user.id,
