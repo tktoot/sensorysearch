@@ -19,6 +19,7 @@ import { SensoryAccessibilitySection } from "@/components/submission-forms/senso
 import type { NoiseLevel, LightingLevel, CrowdLevel, DensityLevel } from "@/lib/constants/sensory-fields"
 import { SubmissionSuccessModal } from "@/components/submission-success-modal"
 
+
 export default function SubmitVenuePage() {
   const router = useRouter()
   const { toast } = useToast()
@@ -83,7 +84,7 @@ export default function SubmitVenuePage() {
     console.log("[v0] Starting validation...")
     if (!formData.title.trim()) newErrors.title = "Title is required"
     if (!formData.description.trim()) newErrors.description = "Description is required"
-    if (formData.description.length < 20) newErrors.description = "Description must be at least 20 characters"
+    if (formData.description.length < 50) newErrors.description = "Description must be at least 50 characters"
     if (formData.description.length > 1000) newErrors.description = "Description must be less than 1000 characters"
     if (!formData.street.trim()) newErrors.street = "Street address is required"
     if (!formData.city.trim()) newErrors.city = "City is required"
@@ -116,20 +117,8 @@ export default function SubmitVenuePage() {
     try {
       console.log("[v0] Starting API call to /api/submissions")
 
-      const payload = {
-        type: "venue",
-        title: formData.title,
-        description: formData.description,
-        address: {
-          street: formData.street,
-          city: formData.city,
-          state: formData.state,
-          zip: formData.zip,
-        },
-        hours: formData.hours,
-        website: formData.website ? normalizeUrl(formData.website) : "",
-        contactEmail: formData.contactEmail,
-        phone: formData.phone,
+      // Prepare sensory features for Supabase (converts nested objects to text array)
+      const sensoryData = {
         sensory: {
           noiseLevel: formData.noiseLevel,
           lightingLevel: formData.lightingLevel,
@@ -147,6 +136,25 @@ export default function SubmitVenuePage() {
           headphonesAllowed: formData.headphonesAllowed,
           staffTrained: formData.staffTrained,
         },
+      }
+
+      const payload = {
+        type: "venue",
+        title: formData.title,
+        description: formData.description,
+        address: {
+          street: formData.street,
+          city: formData.city,
+          state: formData.state,
+          zip: formData.zip,
+        },
+        hours: formData.hours,
+        website: formData.website ? normalizeUrl(formData.website) : "",
+        contactEmail: formData.contactEmail,
+        phone: formData.phone,
+        sensory: sensoryData.sensory,
+        accessibility: sensoryData.accessibility,
+        sensorySupports: sensoryData.sensorySupports,
         images,
       }
 
@@ -246,7 +254,7 @@ export default function SubmitVenuePage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description * (300-1,000 characters)</Label>
+              <Label htmlFor="description">Description * (50-1,000 characters)</Label>
               <Textarea
                 id="description"
                 value={formData.description}

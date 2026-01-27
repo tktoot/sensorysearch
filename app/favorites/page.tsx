@@ -39,12 +39,14 @@ export default function FavoritesPage() {
 
         const { data: favoritesData } = await supabase
           .from("favorites")
-          .select("listing_id, listing_type")
+          .select("item_id, item_type")
           .eq("user_id", user.id)
 
         if (favoritesData) {
-          const eventIds = favoritesData.filter((f) => f.listing_type === "event").map((f) => f.listing_id)
-          const venueIds = favoritesData.filter((f) => f.listing_type === "venue").map((f) => f.listing_id)
+          const eventIds = favoritesData.filter((f) => f.item_type === "event").map((f) => f.item_id)
+          const venueIds = favoritesData.filter((f) => f.item_type === "venue").map((f) => f.item_id)
+          const parkIds = favoritesData.filter((f) => f.item_type === "park").map((f) => f.item_id)
+          const worshipIds = favoritesData.filter((f) => f.item_type === "place_of_worship").map((f) => f.item_id)
 
           if (eventIds.length > 0) {
             const { data: eventsData } = await supabase.from("events").select("*").in("id", eventIds)
@@ -88,8 +90,59 @@ export default function FavoritesPage() {
                     lighting: v.lighting || "Natural",
                   },
                   tags: v.sensory_features || [],
+                  type: "venue",
                 })),
               )
+            }
+          }
+
+          // Add parks to venues list for display
+          if (parkIds.length > 0) {
+            const { data: parksData } = await supabase.from("parks").select("*").in("id", parkIds)
+
+            if (parksData) {
+              setFavoriteVenues((prev) => [
+                ...prev,
+                ...parksData.map((p: any) => ({
+                  id: p.id,
+                  name: p.name,
+                  description: p.description,
+                  city: p.city,
+                  address: p.address,
+                  imageUrl: p.images?.[0] || "/placeholder.svg",
+                  sensoryAttributes: {
+                    noiseLevel: p.noise_level || "Quiet",
+                    lighting: "Natural",
+                  },
+                  tags: p.sensory_features || [],
+                  type: "park",
+                })),
+              ])
+            }
+          }
+
+          // Add worship places to venues list for display
+          if (worshipIds.length > 0) {
+            const { data: worshipData } = await supabase.from("places_of_worship").select("*").in("id", worshipIds)
+
+            if (worshipData) {
+              setFavoriteVenues((prev) => [
+                ...prev,
+                ...worshipData.map((w: any) => ({
+                  id: w.id,
+                  name: w.name,
+                  description: w.description,
+                  city: w.city,
+                  address: w.address,
+                  imageUrl: w.images?.[0] || "/placeholder.svg",
+                  sensoryAttributes: {
+                    noiseLevel: w.noise_level || "Quiet",
+                    lighting: w.lighting || "Soft",
+                  },
+                  tags: w.sensory_features || [],
+                  type: "place_of_worship",
+                })),
+              ])
             }
           }
         }

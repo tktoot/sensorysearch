@@ -20,8 +20,13 @@ import {
   Phone,
   Gift,
   Shield,
+  Church,
+  TreePine,
+  Briefcase,
+  Building2,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { useToast } from "@/hooks/use-toast"
 
 interface Subscription {
   id: string
@@ -39,11 +44,17 @@ interface Subscription {
 }
 
 export function AdminDashboard() {
+  const { toast } = useToast()
   const [submissions, setSubmissions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [venueCount, setVenueCount] = useState(0)
   const [eventCount, setEventCount] = useState(0)
+  const [worshipCount, setWorshipCount] = useState(0)
+  const [parksCount, setParksCount] = useState(0)
+  const [professionalServicesCount, setProfessionalServicesCount] = useState(0)
+  const [selectedCategory, setSelectedCategory] = useState<string>("all")
 
   const tierInfo = {
     basic: { name: "Basic", icon: Sparkles, color: "bg-blue-500/10 text-blue-500" },
@@ -65,11 +76,20 @@ export function AdminDashboard() {
     try {
       const supabase = createClient()
 
-      const { count: venueCount } = await supabase.from("venues").select("*", { count: "exact", head: true })
-      const { count: eventCount } = await supabase.from("events").select("*", { count: "exact", head: true })
+      const [venuesRes, eventsRes, worshipRes, parksRes, playgroundsRes, professionalRes] = await Promise.all([
+        supabase.from("venues").select("*", { count: "exact", head: true }),
+        supabase.from("events").select("*", { count: "exact", head: true }),
+        supabase.from("places_of_worship").select("*", { count: "exact", head: true }),
+        supabase.from("parks").select("*", { count: "exact", head: true }),
+        supabase.from("playgrounds").select("*", { count: "exact", head: true }),
+        supabase.from("professional_services").select("*", { count: "exact", head: true }),
+      ])
 
-      setVenueCount(venueCount || 0)
-      setEventCount(eventCount || 0)
+      setVenueCount(venuesRes.count || 0)
+      setEventCount(eventsRes.count || 0)
+      setWorshipCount(worshipRes.count || 0)
+      setParksCount((parksRes.count || 0) + (playgroundsRes.count || 0))
+      setProfessionalServicesCount(professionalRes.count || 0)
     } catch (err) {
       console.error("[v0] Failed to fetch counts:", err)
     }
@@ -91,6 +111,7 @@ export function AdminDashboard() {
   }
 
   const handleApprove = async (submissionId: string) => {
+    setActionLoading(submissionId)
     try {
       const response = await fetch("/api/admin/approve", {
         method: "POST",
@@ -98,15 +119,38 @@ export function AdminDashboard() {
         body: JSON.stringify({ listingId: submissionId }),
       })
 
-      if (!response.ok) throw new Error("Approval failed")
+      const data = await response.json()
+
+      if (!response.ok) {
+        toast({
+          title: "Approval Failed",
+          description: data.error || data.details || "Unknown error occurred",
+          variant: "destructive",
+        })
+        return
+      }
+
+      toast({
+        title: "Submission Approved",
+        description: "The listing is now live on the Discover page.",
+      })
 
       await fetchSubmissions()
+      await fetchCounts()
     } catch (err) {
       console.error("[v0] Approval error:", err)
+      toast({
+        title: "Approval Failed",
+        description: err instanceof Error ? err.message : "Network error",
+        variant: "destructive",
+      })
+    } finally {
+      setActionLoading(null)
     }
   }
 
   const handleReject = async (submissionId: string, reason?: string) => {
+    setActionLoading(submissionId)
     try {
       const response = await fetch("/api/admin/reject", {
         method: "POST",
@@ -114,11 +158,32 @@ export function AdminDashboard() {
         body: JSON.stringify({ listingId: submissionId, reason }),
       })
 
-      if (!response.ok) throw new Error("Rejection failed")
+      const data = await response.json()
+
+      if (!response.ok) {
+        toast({
+          title: "Rejection Failed",
+          description: data.error || data.details || "Unknown error occurred",
+          variant: "destructive",
+        })
+        return
+      }
+
+      toast({
+        title: "Submission Rejected",
+        description: "The listing has been rejected.",
+      })
 
       await fetchSubmissions()
     } catch (err) {
       console.error("[v0] Rejection error:", err)
+      toast({
+        title: "Rejection Failed",
+        description: err instanceof Error ? err.message : "Network error",
+        variant: "destructive",
+      })
+    } finally {
+      setActionLoading(null)
     }
   }
 
@@ -137,6 +202,9 @@ export function AdminDashboard() {
   const stats = {
     totalVenues: venueCount,
     totalEvents: eventCount,
+    totalWorship: worshipCount,
+    totalParks: parksCount,
+    totalProfessionalServices: professionalServicesCount,
     pendingSubmissions: submissions.filter((s) => s.status === "pending").length,
     approvedToday: submissions.filter(
       (s) =>
@@ -204,10 +272,10 @@ export function AdminDashboard() {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="moderation" className="space-y-6">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="moderation" className="gap-2">
             <AlertCircle className="h-4 w-4" />
-            Moderation Queue
+            Queue
             {stats.pendingSubmissions > 0 && (
               <Badge variant="destructive" className="ml-1 h-5 px-1.5">
                 {stats.pendingSubmissions}
@@ -216,22 +284,91 @@ export function AdminDashboard() {
           </TabsTrigger>
           <TabsTrigger value="subscribers" className="gap-2">
             <CreditCard className="h-4 w-4" />
-            Subscribers
+            Subs
           </TabsTrigger>
           <TabsTrigger value="venues" className="gap-2">
-            <MapPin className="h-4 w-4" />
-            Venues
+            <Building2 className="h-4 w-4" />
+            Venues ({stats.totalVenues})
           </TabsTrigger>
           <TabsTrigger value="events" className="gap-2">
             <Calendar className="h-4 w-4" />
-            Events
+            Events ({stats.totalEvents})
+          </TabsTrigger>
+          <TabsTrigger value="worship" className="gap-2">
+            <Church className="h-4 w-4" />
+            Worship ({stats.totalWorship})
+          </TabsTrigger>
+          <TabsTrigger value="parks" className="gap-2">
+            <TreePine className="h-4 w-4" />
+            Parks ({stats.totalParks})
+          </TabsTrigger>
+          <TabsTrigger value="services" className="gap-2">
+            <Briefcase className="h-4 w-4" />
+            Services ({stats.totalProfessionalServices})
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="moderation" className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <h2 className="text-2xl font-semibold">Pending Submissions</h2>
             <Badge variant="secondary">{stats.pendingSubmissions} pending</Badge>
+          </div>
+
+          {/* Category Filter */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={selectedCategory === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCategory("all")}
+              className={selectedCategory !== "all" ? "bg-transparent" : ""}
+            >
+              All ({stats.pendingSubmissions})
+            </Button>
+            <Button
+              variant={selectedCategory === "venue" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCategory("venue")}
+              className={selectedCategory !== "venue" ? "bg-transparent" : ""}
+            >
+              <Building2 className="mr-1 h-3 w-3" />
+              Venues ({submissions.filter(s => s.status === "pending" && s.type === "venue").length})
+            </Button>
+            <Button
+              variant={selectedCategory === "event" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCategory("event")}
+              className={selectedCategory !== "event" ? "bg-transparent" : ""}
+            >
+              <Calendar className="mr-1 h-3 w-3" />
+              Events ({submissions.filter(s => s.status === "pending" && s.type === "event").length})
+            </Button>
+            <Button
+              variant={selectedCategory === "place_of_worship" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCategory("place_of_worship")}
+              className={selectedCategory !== "place_of_worship" ? "bg-transparent" : ""}
+            >
+              <Church className="mr-1 h-3 w-3" />
+              Worship ({submissions.filter(s => s.status === "pending" && s.type === "place_of_worship").length})
+            </Button>
+            <Button
+              variant={selectedCategory === "park" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCategory("park")}
+              className={selectedCategory !== "park" ? "bg-transparent" : ""}
+            >
+              <TreePine className="mr-1 h-3 w-3" />
+              Parks ({submissions.filter(s => s.status === "pending" && (s.type === "park" || s.type === "playground")).length})
+            </Button>
+            <Button
+              variant={selectedCategory === "professional_service" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCategory("professional_service")}
+              className={selectedCategory !== "professional_service" ? "bg-transparent" : ""}
+            >
+              <Briefcase className="mr-1 h-3 w-3" />
+              Services ({submissions.filter(s => s.status === "pending" && s.type === "professional_service").length})
+            </Button>
           </div>
 
           {loading ? (
@@ -243,7 +380,12 @@ export function AdminDashboard() {
           ) : (
             <div className="space-y-4">
               {submissions
-                .filter((s) => s.status === "pending")
+                .filter((s) => {
+                  if (s.status !== "pending") return false
+                  if (selectedCategory === "all") return true
+                  if (selectedCategory === "park") return s.type === "park" || s.type === "playground"
+                  return s.type === selectedCategory
+                })
                 .map((submission) => (
                   <Card key={submission.id} className="border-l-4 border-l-accent">
                     <CardHeader>
@@ -281,9 +423,27 @@ export function AdminDashboard() {
 
                       <p className="text-sm text-muted-foreground line-clamp-3">{submission.description}</p>
 
-                      {submission.sensory_features && submission.sensory_features.length > 0 && (
+                      {submission.sensory_features && (
                         <div className="flex flex-wrap gap-2">
-                          {submission.sensory_features.map((feature: string) => (
+                          {typeof submission.sensory_features === 'object' && !Array.isArray(submission.sensory_features) ? (
+                            <>
+                              {submission.sensory_features.noiseLevel && (
+                                <Badge variant="outline" className="text-xs">Noise: {submission.sensory_features.noiseLevel}</Badge>
+                              )}
+                              {submission.sensory_features.lightingLevel && (
+                                <Badge variant="outline" className="text-xs">Lighting: {submission.sensory_features.lightingLevel}</Badge>
+                              )}
+                              {submission.sensory_features.crowdLevel && (
+                                <Badge variant="outline" className="text-xs">Crowd: {submission.sensory_features.crowdLevel}</Badge>
+                              )}
+                              {submission.sensory_features.wheelchairAccessible && (
+                                <Badge variant="outline" className="text-xs">Wheelchair Accessible</Badge>
+                              )}
+                              {submission.sensory_features.quietSpaceAvailable && (
+                                <Badge variant="outline" className="text-xs">Quiet Space</Badge>
+                              )}
+                            </>
+                          ) : Array.isArray(submission.sensory_features) && submission.sensory_features.map((feature: string) => (
                             <Badge key={feature} variant="outline" className="text-xs">
                               {feature}
                             </Badge>
@@ -294,16 +454,26 @@ export function AdminDashboard() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleApprove(submission.id)}
-                          className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                          disabled={actionLoading === submission.id}
+                          className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <CheckCircle className="mr-2 inline-block h-4 w-4" />
+                          {actionLoading === submission.id ? (
+                            <Loader2 className="mr-2 inline-block h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle className="mr-2 inline-block h-4 w-4" />
+                          )}
                           Approve
                         </button>
                         <button
                           onClick={() => handleReject(submission.id)}
-                          className="flex-1 rounded-lg border border-border bg-transparent px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                          disabled={actionLoading === submission.id}
+                          className="flex-1 rounded-lg border border-border bg-transparent px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <XCircle className="mr-2 inline-block h-4 w-4" />
+                          {actionLoading === submission.id ? (
+                            <Loader2 className="mr-2 inline-block h-4 w-4 animate-spin" />
+                          ) : (
+                            <XCircle className="mr-2 inline-block h-4 w-4" />
+                          )}
                           Reject
                         </button>
                       </div>
@@ -476,6 +646,54 @@ export function AdminDashboard() {
               <Calendar className="h-12 w-12 text-muted-foreground" />
               <p className="text-center text-muted-foreground">
                 Event management coming soon. Check the Discover page to see live events.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="worship" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold">Places of Worship</h2>
+            <Badge variant="secondary">{stats.totalWorship} total</Badge>
+          </div>
+
+          <Card>
+            <CardContent className="flex h-48 flex-col items-center justify-center gap-3 p-6">
+              <Church className="h-12 w-12 text-muted-foreground" />
+              <p className="text-center text-muted-foreground">
+                Worship management coming soon. Check the Discover page to see live listings.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="parks" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold">Parks & Playgrounds</h2>
+            <Badge variant="secondary">{stats.totalParks} total</Badge>
+          </div>
+
+          <Card>
+            <CardContent className="flex h-48 flex-col items-center justify-center gap-3 p-6">
+              <TreePine className="h-12 w-12 text-muted-foreground" />
+              <p className="text-center text-muted-foreground">
+                Parks management coming soon. Check the Discover page to see live listings.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="services" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold">Professional Services</h2>
+            <Badge variant="secondary">{stats.totalProfessionalServices} total</Badge>
+          </div>
+
+          <Card>
+            <CardContent className="flex h-48 flex-col items-center justify-center gap-3 p-6">
+              <Briefcase className="h-12 w-12 text-muted-foreground" />
+              <p className="text-center text-muted-foreground">
+                Professional services management coming soon. Check the Discover page to see live listings.
               </p>
             </CardContent>
           </Card>

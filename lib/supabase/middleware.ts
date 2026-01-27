@@ -64,7 +64,31 @@ export async function updateSession(request: NextRequest) {
 
   if (user?.email) {
     const isAdmin = ADMIN_EMAILS.includes(user.email.toLowerCase())
-    const role = isAdmin ? "admin" : user.role
+
+    // First, check the existing user record to preserve organizer role
+    const { data: existingUser } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle()
+
+    // Determine the role:
+    // - Admin email always gets admin role
+    // - Existing organizer role is preserved
+    // - New users get "user" role
+    let role: string
+    if (isAdmin) {
+      role = "admin"
+    } else if (existingUser?.role === "organizer" || existingUser?.role === "business") {
+      // PRESERVE organizer/business role - don't overwrite it
+      role = existingUser.role
+    } else if (existingUser?.role) {
+      // Keep existing role
+      role = existingUser.role
+    } else {
+      // New user, default to "user"
+      role = "user"
+    }
 
     // Update user record with role and last login timestamp
     await supabase

@@ -41,10 +41,11 @@ export async function POST(request: NextRequest) {
       eventEnvironment,
       parkFeatures,
       worshipFeatures,
+      professionalServiceFeatures,
       images,
     } = body
 
-    if (!type || !["event", "venue", "park", "playground", "place_of_worship"].includes(type)) {
+    if (!type || !["event", "venue", "park", "playground", "place_of_worship", "professional_service"].includes(type)) {
       return NextResponse.json({ error: "Invalid submission type" }, { status: 400 })
     }
 
@@ -110,6 +111,14 @@ export async function POST(request: NextRequest) {
         : {}),
 
       ...(type === "venue" ? { hours: hours || "" } : {}),
+
+      ...(type === "professional_service"
+        ? {
+            appointmentRequired: professionalServiceFeatures?.appointmentRequired || false,
+            insuranceAccepted: professionalServiceFeatures?.insuranceAccepted || false,
+            hours: professionalServiceFeatures?.hours || hours || "",
+          }
+        : {}),
     }
 
     const submissionData: any = {
@@ -124,7 +133,7 @@ export async function POST(request: NextRequest) {
       website: website || null,
       email: contactEmail || null,
       phone: phone || null,
-      //sensory_features: sensoryFeaturesObject,
+      sensory_features: sensoryFeaturesObject,
       images: images || [],
       status: "pending",
       organizer_id: user.id,

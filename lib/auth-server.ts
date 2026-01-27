@@ -86,30 +86,62 @@ export function isAdminEmail(email: string): boolean {
 
 /**
  * Sync user role based on email (call after sign-in)
+ * 
+ * IMPORTANT: This function must NEVER overwrite an existing role (especially organizer)
+ * back to 'user'. Role should only be set to 'user' on initial profile creation.
+ * Admin emails are the exception - they should always be promoted to admin.
  */
 export async function syncUserRole(userId: string, email: string) {
   const supabase = await createClient()
-  const user = await getServerUser()
+
+  // First, check if user already exists and get their current role
+  const { data: existingUser, error: fetchError } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", userId)
+    .single()
+
+  if (fetchError && fetchError.code !== "PGRST116") {
+    // PGRST116 = no rows found, which is expected for new users
+    console.error("[v0] Failed to fetch existing user:", fetchError)
+    return
+  }
 
   const shouldBeAdmin = isAdminEmail(email)
-  const role = user!.role
 
-  // Update or insert user record with correct role
-  const { error } = await supabase.from("users").upsert(
-    {
-      id: userId,
-      email: email,
-      role: role,
-      updated_at: new Date().toISOString(),
-    },
-    {
-      onConflict: "id",
-    },
-  )
+  if (existingUser) {
+    // User exists - only update role if they should be admin and aren't already
+    if (shouldBeAdmin && existingUser.role !== "admin") {
+      const { error } = await supabase
+        .from("users")
+        .update({
+          role: "admin",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId)
+
+      if (error) {
+        console.error("[v0] Failed to promote user to admin:", error)
+      } else {
+        console.log(`[v0] Promoted user to admin: ${email}`)
+      }
+    }
+    // Otherwise, preserve their existing role (user, organizer, business, etc.)
+    return
+  }
+
+  // User doesn't exist - create with appropriate initial role
+  const initialRole = shouldBeAdmin ? "admin" : "user"
+
+  const { error } = await supabase.from("users").insert({
+    id: userId,
+    email: email,
+    role: initialRole,
+  })
 
   if (error) {
-    console.error("[v0] Failed to sync user role:", error)
+    console.error("[v0] Failed to create user:", error)
   } else {
-    console.log(`[v0] Synced user role: ${email} -> ${role}`)
+    console.log(`[v0] Created new user: ${email} -> ${initialRole}`)
   }
 }

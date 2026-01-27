@@ -1,34 +1,66 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getGuestProfile, saveGuestProfile } from "@/lib/guest-store"
+import { createClient } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
   try {
-    const { listingId } = await request.json()
+    const { listingId, listingType = "event" } = await request.json()
 
     if (!listingId) {
       return NextResponse.json({ error: "listingId is required" }, { status: 400 })
     }
 
-    // Get current guest profile
-    const profile = getGuestProfile() || { favorites: [], createdAt: new Date().toISOString() }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // Toggle favorite
-    const isFavorite = profile.favorites.includes(listingId)
-    const favorites = isFavorite
-      ? profile.favorites.filter((id) => id !== listingId)
-      : [...profile.favorites, listingId]
+    if (!user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    }
 
-    // Remove duplicates
-    const uniqueFavorites = Array.from(new Set(favorites))
+    // Check if already favorited
+    const { data: existing } = await supabase
+      .from("favorites")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("item_id", listingId)
+      .single()
 
-    // Save updated profile
-    saveGuestProfile({ ...profile, favorites: uniqueFavorites })
+    if (existing) {
+      // Remove favorite
+      const { error } = await supabase
+        .from("favorites")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("item_id", listingId)
 
-    return NextResponse.json({
-      ok: true,
-      isFavorite: !isFavorite,
-      favoritesCount: uniqueFavorites.length,
-    })
+      if (error) {
+        console.error("[v0] Failed to remove favorite:", error)
+        return NextResponse.json({ error: "Failed to remove favorite" }, { status: 500 })
+      }
+
+      return NextResponse.json({
+        ok: true,
+        isFavorite: false,
+      })
+    } else {
+      // Add favorite
+      const { error } = await supabase
+        .from("favorites")
+        .insert({
+          user_id: user.id,
+          item_id: listingId,
+          item_type: listingType,
+        })
+
+      if (error) {
+        console.error("[v0] Failed to add favorite:", error)
+        return NextResponse.json({ error: "Failed to add favorite" }, { status: 500 })
+      }
+
+      return NextResponse.json({
+        ok: true,
+        isFavorite: true,
+      })
+    }
   } catch (error) {
     console.error("[v0] Failed to toggle favorite:", error)
     return NextResponse.json({ error: "Failed to toggle favorite" }, { status: 500 })

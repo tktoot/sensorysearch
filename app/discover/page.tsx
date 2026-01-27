@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { MapPin, Star, Volume2, Sun, Users, Calendar, Clock, Building2, Trees } from "lucide-react"
+import { MapPin, Star, Volume2, Sun, Users, Calendar, Clock, Building2, Trees, Briefcase } from "lucide-react"
 import { trackEventView } from "@/lib/analytics"
 import Link from "next/link"
 import { ProfileBanner } from "@/components/profile-banner"
@@ -107,6 +107,7 @@ export default function DiscoverPage() {
   const [events, setEvents] = useState<Event[]>([])
   const [placesOfWorship, setPlacesOfWorship] = useState<Venue[]>([])
   const [parks, setParks] = useState<Venue[]>([])
+  const [professionalServices, setProfessionalServices] = useState<Venue[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showSearchOverlay, setShowSearchOverlay] = useState(false)
@@ -151,7 +152,7 @@ export default function DiscoverPage() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       )
 
-      const [venuesResult, eventsResult, worshipResult, parksResult, playgroundsResult] = await Promise.all([
+      const [venuesResult, eventsResult, worshipResult, parksResult, playgroundsResult, professionalServicesResult] = await Promise.all([
         supabase.from("venues").select("*").order("created_at", { ascending: false }),
         supabase
           .from("events")
@@ -161,6 +162,7 @@ export default function DiscoverPage() {
         supabase.from("places_of_worship").select("*").order("created_at", { ascending: false }),
         supabase.from("parks").select("*").order("created_at", { ascending: false }),
         supabase.from("playgrounds").select("*").order("created_at", { ascending: false }),
+        supabase.from("professional_services").select("*").order("created_at", { ascending: false }),
       ])
 
       if (venuesResult.data) {
@@ -312,6 +314,37 @@ export default function DiscoverPage() {
       }
       setParks(allParks)
       console.log("[v0] Loaded parks and playgrounds from database:", allParks.length)
+
+      if (professionalServicesResult.data) {
+        const mappedProfessionalServices = professionalServicesResult.data.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          category: p.category || "Professional Service",
+          city: p.city,
+          address: p.address,
+          rating: 4.8,
+          imageUrl: p.images?.[0] || p.hero_image_url || "/professional-service.png",
+          coordinates:
+            p.latitude && p.longitude
+              ? { lat: Number.parseFloat(p.latitude), lng: Number.parseFloat(p.longitude) }
+              : null,
+          sensoryAttributes: {
+            noiseLevel: p.noise_level || "Quiet",
+            lighting: p.lighting_level || "Soft",
+            crowdDensity: p.crowd_level || "Low",
+            hasQuietSpace: p.quiet_space_available || false,
+            wheelchairAccessible: p.wheelchair_accessible || false,
+            sensoryFriendlyHours: p.sensory_friendly_hours_available || false,
+          },
+          tags: p.sensory_features || [],
+          listingType: "professional_service",
+          appointmentRequired: p.appointment_required || false,
+          insuranceAccepted: p.insurance_accepted || false,
+        }))
+        setProfessionalServices(mappedProfessionalServices)
+        console.log("[v0] Loaded professional services from database:", mappedProfessionalServices.length)
+      }
     } catch (error) {
       console.error("[v0] Error fetching data:", error)
       setError("Failed to load listings. Please refresh the page.")
@@ -363,6 +396,17 @@ export default function DiscoverPage() {
 
   if (locationPreferences.location) {
     filteredParks = filterByDistance(filteredParks, locationPreferences.location, locationPreferences.radius)
+  }
+
+  let filteredProfessionalServices = professionalServices.filter(
+    (service) =>
+      service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      service.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      service.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase())),
+  )
+
+  if (locationPreferences.location) {
+    filteredProfessionalServices = filterByDistance(filteredProfessionalServices, locationPreferences.location, locationPreferences.radius)
   }
 
   const getSensoryIcon = (type: string) => {
@@ -419,6 +463,12 @@ export default function DiscoverPage() {
       name: park.name,
       coordinates: park.coordinates || { lat: 39.9526, lng: -75.1652 },
       type: "park" as const,
+    })),
+    ...filteredProfessionalServices.map((service) => ({
+      id: service.id,
+      name: service.name,
+      coordinates: service.coordinates || { lat: 39.9526, lng: -75.1652 },
+      type: "professional_service" as const,
     })),
   ]
 
@@ -495,18 +545,21 @@ export default function DiscoverPage() {
         )}
 
         <Tabs defaultValue="events" className="space-y-4">
-          <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-4">
-            <TabsTrigger value="events" className="gap-2">
+          <TabsList className="grid w-full max-w-3xl mx-auto grid-cols-5">
+            <TabsTrigger value="events" className="gap-2 text-xs sm:text-sm">
               Events
             </TabsTrigger>
-            <TabsTrigger value="venues" className="gap-2">
+            <TabsTrigger value="venues" className="gap-2 text-xs sm:text-sm">
               Venues
             </TabsTrigger>
-            <TabsTrigger value="parks" className="gap-2">
+            <TabsTrigger value="parks" className="gap-2 text-xs sm:text-sm">
               Parks
             </TabsTrigger>
-            <TabsTrigger value="worship" className="gap-2">
+            <TabsTrigger value="worship" className="gap-2 text-xs sm:text-sm">
               Worship
+            </TabsTrigger>
+            <TabsTrigger value="services" className="gap-2 text-xs sm:text-sm">
+              Services
             </TabsTrigger>
           </TabsList>
 
@@ -538,7 +591,7 @@ export default function DiscoverPage() {
                     <CardHeader>
                       <div className="flex items-start justify-between gap-2">
                         <CardTitle className="text-lg text-balance">{event.name}</CardTitle>
-                        <FavoriteButton listingId={event.id} listingName={event.name} />
+                        <FavoriteButton listingId={event.id} listingName={event.name} listingType="event" />
                       </div>
                       <CardDescription className="space-y-1">
                         <div className="flex items-center gap-1 text-sm">
@@ -621,11 +674,12 @@ export default function DiscoverPage() {
                 filteredVenues.map((venue) => (
                   <Link key={venue.id} href={`/venue/${venue.id}`} className="block">
                     <Card className="group h-full transition-all hover:shadow-lg relative">
-                      <FavoriteButton
-                        listingId={venue.id}
-                        listingName={venue.name}
-                        className="absolute top-2 right-2 z-10 bg-background/80 backdrop-blur"
-                      />
+<FavoriteButton
+                          listingId={venue.id}
+                          listingName={venue.name}
+                          listingType="venue"
+                          className="absolute top-2 right-2 z-10 bg-background/80 backdrop-blur"
+                        />
                       <div className="relative aspect-video overflow-hidden rounded-t-lg">
                         <img
                           src={venue.imageUrl || "/placeholder.svg?height=200&width=400&query=sensory-friendly-venue"}
@@ -723,6 +777,7 @@ export default function DiscoverPage() {
                         <FavoriteButton
                           listingId={park.id}
                           listingName={park.name}
+                          listingType="park"
                           className="bg-background/80 backdrop-blur"
                         />
                       </div>
@@ -808,6 +863,7 @@ export default function DiscoverPage() {
                         <FavoriteButton
                           listingId={place.id}
                           listingName={place.name}
+                          listingType="place_of_worship"
                           className="bg-background/80 backdrop-blur"
                         />
                       </div>
@@ -874,6 +930,98 @@ export default function DiscoverPage() {
                   <Building2 className="h-12 w-12 text-muted-foreground" />
                   <p className="text-center text-muted-foreground">
                     No places of worship found in your area—try expanding your search radius.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="services" className="space-y-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {!locationPreferences.location ? (
+                <EmptyState />
+              ) : filteredProfessionalServices.length === 0 && professionalServices.length === 0 ? (
+                <>
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <SkeletonCard key={i} />
+                  ))}
+                </>
+              ) : (
+                filteredProfessionalServices.map((service) => (
+                  <Link key={service.id} href={`/venue/${service.id}`} className="block">
+                    <Card className="group h-full transition-all hover:shadow-lg relative">
+<FavoriteButton
+                          listingId={service.id}
+                          listingName={service.name}
+                          listingType="professional_service"
+                          className="absolute top-2 right-2 z-10 bg-background/80 backdrop-blur"
+                        />
+                      <div className="relative aspect-video overflow-hidden rounded-t-lg">
+                        <img
+                          src={service.imageUrl || "/placeholder.svg?height=200&width=400&query=professional-service"}
+                          alt={service.name}
+                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                        />
+                        <Badge className="absolute right-3 top-3 bg-card/90 text-card-foreground backdrop-blur">
+                          {service.category}
+                        </Badge>
+                        {"distance" in service && (
+                          <Badge className="absolute left-3 top-3 bg-primary/90 text-primary-foreground backdrop-blur">
+                            {service.distance} mi
+                          </Badge>
+                        )}
+                      </div>
+                      <CardHeader>
+                        <div className="flex items-start justify-between gap-2">
+                          <CardTitle className="text-lg text-balance">{service.name}</CardTitle>
+                          <div className="flex items-center gap-1 text-sm font-medium">
+                            <Star className="h-4 w-4 fill-accent text-accent" />
+                            {service.rating}
+                          </div>
+                        </div>
+                        <CardDescription className="flex items-center gap-1 text-sm">
+                          <MapPin className="h-3 w-3" />
+                          {service.city}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="mb-4 text-sm text-muted-foreground line-clamp-2">{service.description}</p>
+
+                        <div className="mb-3 flex flex-wrap gap-2">
+                          <Badge variant="outline" className="gap-1 text-xs">
+                            <Volume2 className="h-3 w-3" />
+                            {service.sensoryAttributes.noiseLevel}
+                          </Badge>
+                          <Badge variant="outline" className="gap-1 text-xs">
+                            <Sun className="h-3 w-3" />
+                            {service.sensoryAttributes.lighting}
+                          </Badge>
+                          <Badge variant="outline" className="gap-1 text-xs">
+                            <Users className="h-3 w-3" />
+                            {service.sensoryAttributes.crowdDensity}
+                          </Badge>
+                        </div>
+
+                        <div className="mb-3 flex flex-wrap gap-1">
+                          {service.tags.slice(0, 3).map((tag) => (
+                            <Badge key={tag} variant="secondary" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                        <OpenInMapsButton address={`${service.address}, ${service.city || ""}`} />
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))
+              )}
+            </div>
+
+            {filteredProfessionalServices.length === 0 && professionalServices.length > 0 && locationPreferences.location && (
+              <Card>
+                <CardContent className="flex h-48 items-center justify-center p-6">
+                  <p className="text-muted-foreground">
+                    No professional services found within {locationPreferences.radius} miles. Try widening your search radius.
                   </p>
                 </CardContent>
               </Card>

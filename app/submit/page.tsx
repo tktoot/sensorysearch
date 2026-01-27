@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Calendar, Building2, ArrowRight, TreePine, Church, AlertCircle } from "lucide-react"
+import { Calendar, Building2, ArrowRight, TreePine, Church, AlertCircle, Briefcase } from "lucide-react"
 import Link from "next/link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
@@ -64,7 +64,7 @@ export default async function SubmitPage() {
         </Alert>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
         <Card className="group transition-all hover:border-primary hover:shadow-lg">
           <CardContent className="flex flex-col items-center gap-4 p-6 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 transition-colors group-hover:bg-primary/20">
@@ -162,6 +162,30 @@ export default async function SubmitPage() {
             ) : (
               <Button asChild size="sm" variant="outline" className="mt-2 w-full gap-2 bg-transparent">
                 <Link href="/upgrade-organizer?next=/organizer/submit/worship">Upgrade to Continue</Link>
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="group transition-all hover:border-primary hover:shadow-lg">
+          <CardContent className="flex flex-col items-center gap-4 p-6 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 transition-colors group-hover:bg-primary/20">
+              <Briefcase className="h-7 w-7 text-primary" />
+            </div>
+            <div>
+              <h2 className="mb-2 text-lg font-semibold">Professional Service</h2>
+              <p className="text-xs text-muted-foreground">Add a sensory-friendly practice</p>
+            </div>
+            {isOrganizer ? (
+              <Button asChild size="sm" className="mt-2 w-full gap-2">
+                <Link href="/organizer/submit/professional-service">
+                  Continue
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild size="sm" variant="outline" className="mt-2 w-full gap-2 bg-transparent">
+                <Link href="/upgrade-organizer?next=/organizer/submit/professional-service">Upgrade to Continue</Link>
               </Button>
             )}
           </CardContent>

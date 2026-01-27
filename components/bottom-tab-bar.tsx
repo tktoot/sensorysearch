@@ -18,6 +18,12 @@ export function BottomTabBar() {
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
 
+  // Hidden routes where tab bar should not appear
+  const hiddenRoutes = ["/intro", "/auth", "/login", "/signup", "/sign-in", "/sign-up"]
+  const [shouldHideTabBar, setShouldHideTabBar] = useState(() => 
+    hiddenRoutes.some((route) => pathname?.startsWith(route))
+  )
+
   useEffect(() => {
     const checkUserRole = async () => {
       try {
@@ -108,6 +114,11 @@ export function BottomTabBar() {
     }
   }, [])
 
+  useEffect(() => {
+    const shouldHide = hiddenRoutes.some((route) => pathname?.startsWith(route))
+    setShouldHideTabBar(shouldHide)
+  }, [pathname, hiddenRoutes])
+
   const tabs = [
     { href: "/discover", label: "Discover", icon: Home },
     { href: "advertise-menu", label: "Advertise", icon: Megaphone, isMenu: true },
@@ -122,6 +133,7 @@ export function BottomTabBar() {
     { href: "/submit", label: "List a Venue", description: "Add a sensory-friendly business" },
     { href: "/submit", label: "List a Park/Playground", description: "Free community listing" },
     { href: "/submit", label: "List a Place of Worship", description: "Always free" },
+    { href: "/submit", label: "List a Professional Service", description: "Therapists, dentists, and more" },
   ]
 
   const isActive = (href: string) => {
@@ -135,6 +147,10 @@ export function BottomTabBar() {
     if (tab.isMenu) {
       setShowAdvertiseMenu(true)
     }
+  }
+
+  if (shouldHideTabBar) {
+    return null
   }
 
   return (

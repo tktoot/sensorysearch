@@ -5,24 +5,51 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Heart } from "lucide-react"
-import { isGuestFavorite } from "@/lib/guest-store"
 import { toast } from "sonner"
 import { EmailCaptureModal } from "@/components/email-capture-modal"
+import { createBrowserClient } from "@/lib/supabase-browser-client"
 
 interface FavoriteButtonProps {
   listingId: string
   listingName: string
+  listingType?: string
   className?: string
 }
 
-export function FavoriteButton({ listingId, listingName, className }: FavoriteButtonProps) {
+export function FavoriteButton({ listingId, listingName, listingType = "event", className }: FavoriteButtonProps) {
   const [isFavorited, setIsFavorited] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [showEmailCapture, setShowEmailCapture] = useState(false)
   const [pendingFavorite, setPendingFavorite] = useState(false)
 
   useEffect(() => {
-    setIsFavorited(isGuestFavorite(listingId))
+    async function checkFavoriteStatus() {
+      try {
+        const supabase = createBrowserClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        )
+        
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (user) {
+          const { data } = await supabase
+            .from("favorites")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("item_id", listingId)
+            .single()
+          
+          setIsFavorited(!!data)
+        }
+      } catch (error) {
+        // User not logged in or error - default to not favorited
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    checkFavoriteStatus()
   }, [listingId])
 
   const handleToggle = async (e: React.MouseEvent) => {
@@ -53,7 +80,8 @@ export function FavoriteButton({ listingId, listingName, className }: FavoriteBu
       const response = await fetch("/api/favorites/toggle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ listingId }),
+        credentials: "include",
+        body: JSON.stringify({ listingId, listingType }),
       })
 
       if (!response.ok) {
